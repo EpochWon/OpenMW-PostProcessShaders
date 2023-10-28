@@ -39,6 +39,12 @@ uniform_float uSkyFactor {
 	description = "Brightness multiplier for the Sky, may have issues with built in fog";
 }
 
+uniform_bool uGrayscale {
+	default = false;
+	display_name = "Grayscale Bloom";
+	description = "Desaturates bloom input to grayscale to mimic the single color bloom in Ico or Shadow of the Colossus. Can still be tinted by Color Tint";
+}
+
 uniform_bool uDebug {
 	default = false;
 	display_name = "Debug";
@@ -77,8 +83,14 @@ fragment threshold(target=RT_Threshold) {
 		
 		bool is_sky = (omw_GetLinearDepth(omw_TexCoord) > omw.far*0.999);
 		float factor = is_sky ? uSkyFactor : 1.0;
-		
-		omw_FragColor = scene * factor;	
+		if (uGrayscale) {
+			const vec3 luminance = vec3(0.299, 0.587, 0.144);
+			float gray = dot(luminance, scene.rgb);
+			
+			omw_FragColor = vec4(vec3(gray) * factor, 1);	
+		} else {
+			omw_FragColor = scene * factor;	
+		}
 	}
 }
 
