@@ -2,7 +2,7 @@
 Some post process shaders for OpenMW 0.48+
 
 # Shaders
-BloomPS2: 
+**BloomPS2**: 
 Bloom shader similar to the PS2 era (Ico, Shadow of the Colossus) or Oblivion. Purposely low res RT so its shimmery and has a glow around the outer edge of the frame. Has settings to change brightness and threshold, and a skybox mask to lower sky brightness, can also be tinted to different colours. May have some issues with the built in fog when adjusting the sky brightness. Based on: https://github.com/Matsilagi/RSJankShaders/blob/main/Shaders/BadBloomPS2.fx
 
 **ClampColours**:
