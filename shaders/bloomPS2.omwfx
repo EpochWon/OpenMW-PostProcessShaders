@@ -90,7 +90,7 @@ fragment blur(target=RT_Blur, rt1=RT_Threshold){
 		vec2 uv = omw_TexCoord;
 		vec2 pix = uScale / omw.resolution;
 		
-		vec4 color = omw_Texture2D(RT_Threshold, uv); //* 0.204164;
+		vec4 color = omw_Texture2D(RT_Threshold, uv) * 0.204164;
 		
 		//U
 		color += omw_Texture2D(RT_Threshold, uv + vec2(pix.x * 8 * 1.407333, 0)) * 0.304005;
