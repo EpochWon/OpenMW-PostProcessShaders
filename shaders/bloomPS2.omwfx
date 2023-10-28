@@ -4,6 +4,7 @@ uniform_float uThreshold  {
     max = 10.0;
     step = 0.01;
 	display_name = "Bloom Threshold";
+	header = "Bloom Settings";
 }
 
 uniform_vec2 uScale {
@@ -47,8 +48,15 @@ uniform_bool uGrayscale {
 
 uniform_bool uDebug {
 	default = false;
-	display_name = "Debug";
+	display_name = "Show Bloom Mask";
 	description = "Show only the bloom effect without blending";
+	header = "Debug";
+}
+
+uniform_bool uToggle {
+	default = true;
+	display_name = "Toggle Bloom";
+	description = "Toggle the entire effect for easy comparison";
 }
 
 render_target RT_Threshold {
@@ -131,6 +139,9 @@ fragment main(rt1=RT_Blur) {
 			scene = blur.rgb * (uAmount * uColor);
 		} else {
 			scene = blur.rgb * (uAmount * uColor) + scene;
+		}
+		if (!uToggle) {
+			scene = omw_GetLastShader(omw_TexCoord).rgb;
 		}
 		omw_FragColor = vec4(scene.rgb, 1);
 	}
