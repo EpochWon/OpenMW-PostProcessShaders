@@ -60,8 +60,8 @@ uniform_bool uToggle {
 }
 
 render_target RT_Threshold {
-    width_ratio = 0.125;
-    height_ratio = 0.125;
+    width_ratio = 0.25;
+    height_ratio = 0.25;
     internal_format = rgb;
     source_type = float;
 	wrap_s = repeat;
