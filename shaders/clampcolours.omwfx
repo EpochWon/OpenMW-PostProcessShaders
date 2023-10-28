@@ -1,0 +1,24 @@
+uniform_float uColorDepth {
+    default = 255.0;
+    min = 0.0;
+    max = 255.0;
+    step = 1.0;
+}
+
+fragment clamp {
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+		omw_FragColor = vec4(floor(scene * uColorDepth) / uColorDepth, 1.0);	
+	}
+}
+
+
+technique {
+    description = "Clamps colour depth for testing debanding";
+    passes = clamp;
+    version = "1.0";
+    author = "Epoch";
+}

@@ -1,0 +1,68 @@
+uniform_float uSpeed {
+    default = 2.0;
+    min = -5.0;
+    max = 5.0;
+    step = 0.1;
+}
+
+uniform_float xDistMag {
+    default = 0.01;
+    min = 0.0;
+    max = 0.1;
+    step = 0.001;
+}
+
+uniform_float yDistMag {
+    default = 0.01;
+    min = 0.0;
+    max = 0.1;
+    step = 0.001;
+}
+
+uniform_float xSineCycles {
+    default = 6.28;
+    min = 0.0;
+    max = 31.41;
+    step = 3.14;
+}
+
+uniform_float ySineCycles {
+    default = 6.28;
+    min = 0.0;
+    max = 31.41;
+    step = 3.14;
+}
+
+
+fragment main {
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		float minRes = min (omw.resolution.x, omw.resolution.y);
+		
+		vec2 uv = omw_TexCoord;
+		//uv *= minRes;
+		
+		float time = omw.simulationTime * uSpeed;
+		float xAngle = time + uv.y * ySineCycles;
+		float yAngle = time + uv.x * xSineCycles;
+		
+		vec2 distortOffset = vec2(sin(xAngle), sin(yAngle)) * vec2(xDistMag,yDistMag);
+		
+		uv += distortOffset;
+		
+		vec3 scene = omw_GetLastShader(uv.xy).rgb;
+		
+		omw_FragColor = vec4(scene.rgb, 1.0);	
+	}
+}
+
+technique {
+    description = "Underwater distortion effect like Quake 1's software renderer. 
+Ported from shadertoy.com/view/MsKXzD";
+    passes = main;
+    version = "1.0";
+    author = "JasonD, ported by Epoch";
+	flags = Disable_AboveWater;
+}

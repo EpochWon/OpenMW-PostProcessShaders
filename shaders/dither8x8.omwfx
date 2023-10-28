@@ -1,0 +1,38 @@
+uniform_float uDitheredBrightness {
+    default = 1;
+    min = 0.0;
+    max = 5.0;
+    step = 0.05;
+    description = "Adjusts the brightness of the dithered image.";
+}
+
+sampler_2d dithertex8 {
+	source = "textures/dither8.png";
+	mag_filter = nearest;
+	min_filter = nearest;
+	wrap_s = repeat;
+	wrap_t = repeat;
+}
+
+fragment dither {
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+		
+		//vec2 screenuv = (omw_TexCoord.xy * omw.resolution / vec2(4, 4)).xy;
+		vec4 texture = omw_Texture2D(dithertex8, (omw_TexCoord.xy * omw.resolution / vec2(8, 8)));
+		//vec4 ditheredcol = step(scene, texture);
+		
+		omw_FragColor = vec4(1 - step(scene.rgb * uDitheredBrightness, texture.rgb), 1.0);
+	}
+}
+
+
+technique {
+    description = "Clamps colours to an 8x8 dither";
+    passes = dither;
+    version = "1.0";
+    author = "Epoch";
+}
