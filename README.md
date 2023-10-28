@@ -12,7 +12,7 @@ Clamps colour depth to assigned value, was using for debugging, probably not use
 Ordered Bayer dithering using either a 4x4 or 8x8 matrix texture. Clamps colours and then uses the ordered dithering to reconstruct depth. Not really useful, just a novelty.
 
 **QuakeUnderwater**: 
-Underwater screen distortion similar to Quake's software renderer. Default settings might be a bit intense but with proper settings it can look quite nice. A port of this Shadertoy: shadertoy.com/view/MsKXzD
+Underwater screen distortion similar to Quake's software renderer. Default settings might be a bit intense but with proper settings it can look quite nice. A port of this Shadertoy: https://www.shadertoy.com/view/MsKXzD
 
 **ValveDither**: 
 Valve's screen space dithering, should theoretically improve colour banding but I could never get it to really work. Has ClampColours built in so you can limit colour depth and have it reconstructed with dither, better results than Dither4x4/8x8, but still just a novelty.
