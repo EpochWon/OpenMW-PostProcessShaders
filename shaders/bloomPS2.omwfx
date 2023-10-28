@@ -17,7 +17,7 @@ uniform_vec2 uScale {
 uniform_vec3 uColor {
 	default = vec3(1,1,1);
 	min = vec3(0,0,0);
-	max = vec3(1,1,1);
+	max = vec3(2,2,2);
 	step = 0.01;
 	display_name = "Color Tint";
 }
