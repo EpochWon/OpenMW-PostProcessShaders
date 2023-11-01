@@ -5,8 +5,29 @@ uniform_float uColorDepth {
     step = 1.0;
 }
 
+uniform_bool temporalDither {
+	default = false;
+}
+
+uniform_bool enabled {
+	default = true;
+}
+
 uniform_bool clampColors {
 	default = false;
+}
+
+shared {
+
+	vec3 screen_space_dither(vec2 frag_coord) {
+	
+		// Iestyn's RGB dither (7 asm instructions) from Portal 2 X360, slightly modified for VR.
+		vec3 dither = vec3(dot(vec2(171.0, 231.0), frag_coord));
+		dither.rgb = fract(dither.rgb / vec3(103.0, 71.0, 97.0));
+
+		// Subtract 0.5 to avoid slightly brightening the whole viewport.
+		return (dither.rgb - 0.5) / uColorDepth;
+	}
 }
 
 fragment dither {
@@ -16,24 +37,27 @@ fragment dither {
 	{
 		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
 		
-		// from http://alex.vlachos.com/graphics/Alex_Vlachos_Advanced_VR_Rendering_GDC2015.pdf
-		vec3 vDither = vec3(dot( vec2(171.0, 231.0), (omw_TexCoord.xy * omw.resolution) + omw.simulationTime));
-		vDither.rgb = fract(vDither.rgb / vec3(103.0, 71.0, 97.0)) - vec3(0.5, 0.5, 0.5);
-		vDither.rgb = (vDither.rgb / uColorDepth);
+		vec2 fragCoord = omw_TexCoord.xy * omw.resolution;
 		
-		vec3 ditheredscene = scene + vDither.rgb;
+		if (temporalDither) {
+			fragCoord += omw.simulationTime;
+		}
+		
+		if (enabled) {
+			scene += screen_space_dither(fragCoord.xy);
+		}
 		
 		if (clampColors){
-			ditheredscene = vec3(floor(ditheredscene.rgb * uColorDepth) / uColorDepth);
+			scene = vec3(floor(scene.rgb * uColorDepth) / uColorDepth);
 		}
 
-		omw_FragColor = vec4(ditheredscene.rgb, 1.0);
+		omw_FragColor = vec4(scene.rgb, 1.0);
 	}
 }
 
 
 technique {
-    description = "Clamps colours to an 8x8 dither";
+    description = "Valve's screen space dither shader for debanding";
     passes = dither;
     version = "1.0";
     author = "Epoch";
