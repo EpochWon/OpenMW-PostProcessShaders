@@ -7,6 +7,9 @@ Bloom shader similar to the PS2 era (Ico, Shadow of the Colossus) or Oblivion. P
 
 RT resolution is set to 1/8th res to match the PS2, but this causes heavy shimmer in motion, this can be changed by editing the 'width_ratio' and 'height_ratio' of the render targets.
 
+**BloomKuwara**
+Modified version of BloomPS2 which uses a Kuwara blur instead, also added more customization settings and dither debanding. 
+
 **ClampColours**:
 Clamps colour depth to assigned value, was using for debugging, probably not useful.
 
