@@ -1,0 +1,282 @@
+uniform_float uThreshold  {
+    default = 2.0;
+    min = 1.0;
+    max = 10.0;
+    step = 0.01;
+	display_name = "Bloom Threshold";
+	header = "Bloom Settings";
+}
+
+uniform_vec2 uScale {
+    default = vec2(3,3);
+    min = vec2(0,0);
+    max = vec2(20,20);
+    step = 0.1;
+	display_name = "Blur Scale";
+}
+
+uniform_float uAmount {
+	default = 1.0;
+	min = 0.0;
+	max = 10.0;
+	step = 0.1;
+	display_name = "Strength";
+}
+
+uniform_float uSkyFactor {
+    default = 0.5;
+    min = 0.0;
+    max = 2.0;
+    step = 0.01;
+	display_name = "Sky Intensity";
+	description = "Brightness multiplier for the Sky, may have issues with built in fog.";
+}
+
+uniform_int uDepthMask {
+	default = 0;
+	min = 0;
+    max = 3;
+	step = 1;
+	display_name = "Depth Masking";
+	description = "Use depth to mask bloom instead of threshold to mimic the bloom in Shadow of the Colossus, may result in the night sky being too bright.
+	0: No depth mask
+	1: Replace mask 
+	2: Multiply mask
+	3: Max mask";
+}
+
+uniform_bool uAutoSkyBrightness {
+	default = false;
+	display_name = "Auto Adjust Sky Brightness";
+	description = "Automatically lower the brightness of the sky based on time of day.";
+}
+
+uniform_float uAutoSkyBrightnessOffset {
+    default = 0.0;
+    min = -0.5;
+    max = 0.5;
+    step = 0.01;
+	display_name = "Auto Sky Brightness Offset";
+	description = "Offset the automatic sky brightness to reduce halos around the horizon. Don't use for just changing the sky brightness, use 'Sky Intensity' instead.";
+}
+
+uniform_bool uDither {
+	default = true;
+	display_name = "Dithering";
+	description = "Dither the bloom mask to remove banding.";
+	header = "Dithering";
+}
+
+uniform_float uDitherStrength {
+    default = 32;
+    min = 1.0;
+    max = 255.0;
+    step = 1.0;
+	display_name = "Dither intensity";
+	description = "Lower value decreases more banding but makes the dithering more visible.";
+}
+
+uniform_bool uTemporalDither {
+	default = false;
+	display_name = "Temporal Dithering";
+	description = "Change the dither pattern temporally, may result in less banding but more visible dithering.";
+}
+
+uniform_bool uGrayscale {
+	default = false;
+	display_name = "Grayscale Bloom";
+	description = "Desaturates bloom input to grayscale to mimic the single color bloom in Ico or Shadow of the Colossus. Can still be tinted by Color Tint.";
+	header = "Color Tint";
+}
+
+uniform_vec3 uColor {
+	default = vec3(1,1,1);
+	min = vec3(0,0,0);
+	max = vec3(2,2,2);
+	step = 0.01;
+	display_name = "Color Tint";
+}
+
+uniform_bool uDebug {
+	default = false;
+	display_name = "Show Bloom Mask";
+	description = "Show only the bloom effect without blending.";
+	header = "Debug";
+}
+
+uniform_bool uToggle {
+	default = true;
+	display_name = "Toggle Bloom";
+	description = "Toggle the entire effect for easy comparison.";
+}
+
+shared {
+
+	vec3 screen_space_dither(vec2 frag_coord) {
+	
+		// Iestyn's RGB dither (7 asm instructions) from Portal 2 X360, slightly modified for VR.
+		vec3 dither = vec3(dot(vec2(171.0, 231.0), frag_coord));
+		dither.rgb = fract(dither.rgb / vec3(103.0, 71.0, 97.0));
+
+		// Subtract 0.5 to avoid slightly brightening the whole viewport.
+		return (dither.rgb - 0.5) / uDitherStrength;
+	}
+}
+
+fragment threshold() {
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec4 scene = omw_GetLastShader(omw_TexCoord);
+		
+		float sunHeight = (omw.isInterior || omw.isUnderwater || !uAutoSkyBrightness) ? 1.0f : omw.sunPos.z;
+		float skyFactor = (uSkyFactor * sunHeight) + uAutoSkyBrightnessOffset; 
+		
+		scene.r = pow(scene.r, uThreshold);
+		scene.g = pow(scene.g, uThreshold);
+		scene.b = pow(scene.b, uThreshold);
+		
+		bool is_sky = (omw_GetLinearDepth(omw_TexCoord) > omw.far*0.999);
+		float factor = is_sky ? skyFactor : 1.0;
+		
+		if (uDepthMask == 1) {
+			float factor = is_sky ? skyFactor : 0.0;
+			scene.rgb = vec3(factor);
+		} else if (uDepthMask == 2) {
+			float factor = is_sky ? skyFactor : 0.0;
+			scene.rgb *= vec3(factor);
+		} else if (uDepthMask == 3) {
+			float factor = is_sky ? skyFactor : 0.0;
+			scene.rgb = max(scene.rgb, vec3(factor));
+		}
+		
+		if (uGrayscale) {
+			const vec3 luminance = vec3(0.299, 0.587, 0.144);
+			float gray = dot(luminance, scene.rgb);
+			
+			omw_FragColor = vec4(vec3(gray) * factor, 1);	
+		} else {
+			omw_FragColor = scene * factor;	
+		}
+	}
+}
+
+fragment downsample1(){
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec2 uv = omw_TexCoord.xy * 2;
+		vec2 halfpixel = 0.5 / (omw.resolution.xy / 2.0);
+
+		vec4 sum = omw_GetLastPass(uv) * 4.0;
+		sum += omw_GetLastPass(uv - halfpixel.xy * uScale);
+		sum += omw_GetLastPass(uv + halfpixel.xy * uScale);
+		sum += omw_GetLastPass(uv + vec2(halfpixel.x, -halfpixel.y) * uScale);
+		sum += omw_GetLastPass(uv - vec2(halfpixel.x, -halfpixel.y) * uScale);
+
+		omw_FragColor = sum / 8.0;
+	}
+}
+
+fragment downsample2(){
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec2 uv = omw_TexCoord.xy * 2;
+		vec2 halfpixel = 0.5 / (omw.resolution.xy / 2.0);
+
+		vec4 sum = omw_GetLastPass(uv) * 4.0;
+		sum += omw_GetLastPass(uv - halfpixel.xy * uScale);
+		sum += omw_GetLastPass(uv + halfpixel.xy * uScale);
+		sum += omw_GetLastPass(uv + vec2(halfpixel.x, -halfpixel.y) * uScale);
+		sum += omw_GetLastPass(uv - vec2(halfpixel.x, -halfpixel.y) * uScale);
+
+		omw_FragColor = sum / 8.0;
+	}
+}
+
+fragment upsample1(){
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec2 uv = omw_TexCoord.xy / 2;
+		vec2 halfpixel = 0.5 / (omw.resolution.xy * 2.0);
+
+		vec4 sum = omw_GetLastPass(uv + vec2(-halfpixel.x * 2.0, 0.0) * uScale);
+    
+		sum +=omw_GetLastPass(uv + vec2(-halfpixel.x, halfpixel.y) * uScale) * 2.0;
+		sum +=omw_GetLastPass(uv + vec2(0.0, halfpixel.y * 2.0) * uScale);
+		sum +=omw_GetLastPass(uv + vec2(halfpixel.x, halfpixel.y) * uScale) * 2.0;
+		sum +=omw_GetLastPass(uv + vec2(halfpixel.x * 2.0, 0.0) * uScale);
+		sum +=omw_GetLastPass(uv + vec2(halfpixel.x, -halfpixel.y) * uScale) * 2.0;
+		sum +=omw_GetLastPass(uv + vec2(0.0, -halfpixel.y * 2.0) * uScale);
+		sum +=omw_GetLastPass(uv + vec2(-halfpixel.x, -halfpixel.y) * uScale) * 2.0;
+
+		omw_FragColor = sum / 12.0;
+	}
+}
+
+fragment upsample2(){
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec2 uv = omw_TexCoord.xy / 2;
+		vec2 halfpixel = 0.5 / (omw.resolution.xy * 2.0);
+		
+		vec2 ditherCoord = omw_TexCoord.xy * omw.resolution;
+
+		vec4 sum = omw_GetLastPass(uv + vec2(-halfpixel.x * 2.0, 0.0) * uScale);
+    
+		sum += omw_GetLastPass(uv + vec2(-halfpixel.x, halfpixel.y) * uScale) * 2.0;
+		sum += omw_GetLastPass(uv + vec2(0.0, halfpixel.y * 2.0) * uScale);
+		sum += omw_GetLastPass(uv + vec2(halfpixel.x, halfpixel.y) * uScale) * 2.0;
+		sum += omw_GetLastPass(uv + vec2(halfpixel.x * 2.0, 0.0) * uScale);
+		sum += omw_GetLastPass(uv + vec2(halfpixel.x, -halfpixel.y) * uScale) * 2.0;
+		sum += omw_GetLastPass(uv + vec2(0.0, -halfpixel.y * 2.0) * uScale);
+		sum += omw_GetLastPass(uv + vec2(-halfpixel.x, -halfpixel.y) * uScale) * 2.0;
+		
+		if (uTemporalDither) {
+			ditherCoord += omw.simulationTime;
+		}
+		
+		if (uDither) {
+			sum.rgb += screen_space_dither((ditherCoord.xy));
+		}
+
+		omw_FragColor = sum / 12.0;
+	}
+}
+
+fragment main() {
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+		vec3 blur = omw_GetLastPass(omw_TexCoord).rgb;
+		
+		if (uDebug) {
+			scene = blur.rgb * (uAmount * uColor);
+		} else {
+			scene = blur.rgb * (uAmount * uColor) + scene;
+		}
+		
+		if (!uToggle) {
+			scene = omw_GetLastShader(omw_TexCoord).rgb;
+		}
+		
+		omw_FragColor = vec4(scene.rgb, 1);
+	}
+}
+
+technique {
+    description = "Customizable Oblivion/Ico/Shadow of the Colossus style bloom using Kawase blur";
+    passes = threshold, downsample1, downsample2, upsample1, upsample2, main;
+    version = "1.0";
+    author = "Epoch";
+}
