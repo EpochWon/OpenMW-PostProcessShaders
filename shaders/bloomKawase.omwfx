@@ -245,7 +245,7 @@ fragment upsample2(){
 		}
 		
 		if (uDither) {
-			sum.rgb += screen_space_dither((ditherCoord.xy));
+			sum.rgb += screen_space_dither(ditherCoord.xy);
 		}
 
 		omw_FragColor = sum / 12.0;
