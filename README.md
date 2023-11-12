@@ -10,6 +10,9 @@ RT resolution is set to 1/8th res to match the PS2, but this causes heavy shimme
 **BloomKawase**
 Modified version of BloomPS2 which uses a Kawase blur instead, also added more customization settings and dither debanding. 
 
+**Lens-Flare**
+Port of https://john-chapman-graphics.blogspot.com/2013/02/pseudo-lens-flare.html without the star burst handling because I couldn't get it to work. Kind of sucks during the day because of the lack of true HDR rendering, but looks decent at night or inside.
+
 **ClampColours**:
 Clamps colour depth to assigned value, was using for debugging, probably not useful.
 
