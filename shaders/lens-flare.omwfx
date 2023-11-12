@@ -28,7 +28,7 @@ uniform_int uGhosts {
 }
 
 uniform_float uGhostDispersal {
-	default = 1.0;
+	default = 0.7;
 	min = 0.0;
 	max = 10.0;
 	step = 0.1;
@@ -41,7 +41,7 @@ uniform_bool uFlipUV {
 }
 
 uniform_bool uTintLens {
-	default = false;
+	default = true;
 	display_name = "Tint Lens Ghosts";
 	description = "Tint lens flare using lensflare1d texture";
 }
@@ -67,14 +67,14 @@ uniform_bool uEnableDistortion {
 }
 
 uniform_float uDistortion {
-	default = 0.5;
+	default = 2.0;
 	min = 0.0;
 	step = 0.1;
 	display_name = "RGB Split Amount";
 }
 
 uniform_float uRadius {
-    default = 0.5;
+    default = 0.2;
     min = 0.0;
     max = 1.0;
     step = 0.01;
