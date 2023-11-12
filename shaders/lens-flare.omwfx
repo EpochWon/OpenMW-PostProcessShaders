@@ -353,7 +353,8 @@ fragment main(rt1=RT_Vertical) {
 
 technique {
     description = "Post Process Lens flare, 
-	ported from: https://john-chapman-graphics.blogspot.com/2013/02/pseudo-lens-flare.html";
+	ported from: https://john-chapman-graphics.blogspot.com/2013/02/pseudo-lens-flare.html
+	Gaussian Blur from built in bloomlinear.omwfx";
     passes = threshold, flare, horizontal, vertical, main;
     version = "1.0";
     author = "John Chapman, Ported by Epoch";
