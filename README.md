@@ -7,10 +7,10 @@ Bloom shader similar to the PS2 era (Ico, Shadow of the Colossus) or Oblivion. P
 
 RT resolution is set to 1/8th res to match the PS2, but this causes heavy shimmer in motion, this can be changed by editing the 'width_ratio' and 'height_ratio' of the render targets.
 
-**BloomKawase**
+**BloomKawase**:
 Modified version of BloomPS2 which uses a Kawase blur instead, also added more customization settings and dither debanding. 
 
-**Lens-Flare**
+**Lens-Flare**:
 Port of https://john-chapman-graphics.blogspot.com/2013/02/pseudo-lens-flare.html without the star burst handling because I couldn't get it to work. Kind of sucks during the day because of the lack of true HDR rendering, but looks decent at night or inside.
 
 **ClampColours**:
