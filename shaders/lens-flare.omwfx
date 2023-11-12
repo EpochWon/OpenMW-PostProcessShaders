@@ -1,0 +1,360 @@
+uniform_float uBias {
+	default = -0.5;
+	min = -1.0;
+	max = 1.0;
+	step = 0.01;
+	display_name = "Brightness Threshold";
+	header = "Threshold";
+}
+
+uniform_float uBrightness {
+	default = 1.0;
+	min = 0.0;
+	max = 10.0;
+	step = 0.1;
+	display_name = "Flare Brightness";
+}
+
+uniform_bool uEnableFlare {
+	default = true;
+	display_name = "Enable Flare";
+	header = "Ghosts";
+}
+
+uniform_int uGhosts {
+	default = 8;
+	min = 1;
+	display_name = "Flare Ghosts";
+}
+
+uniform_float uGhostDispersal {
+	default = 1.0;
+	min = 0.0;
+	max = 10.0;
+	step = 0.1;
+	display_name = "Flare Ghost Distance";
+}
+
+uniform_bool uFlipUV {
+	default = true;
+	display_name = "Flip Input Texture";
+}
+
+uniform_bool uTintLens {
+	default = false;
+	display_name = "Tint Lens Ghosts";
+	description = "Tint lens flare using lensflare1d texture";
+}
+
+uniform_bool uEnableHalo {
+	default = true;
+	display_name = "Enable Halo";
+	header = "Halo";
+}
+
+uniform_float uHaloWidth {
+	default = 0.5;
+	min = 0.0;
+	max = 0.7;
+	step = 0.01;
+	display_name = "Halo Width";
+}
+
+uniform_bool uEnableDistortion {
+	default = true;
+	display_name = "Chromatic Abberation";
+	header = "Chromatic Abberation";
+}
+
+uniform_float uDistortion {
+	default = 0.5;
+	min = 0.0;
+	step = 0.1;
+	display_name = "RGB Split Amount";
+}
+
+uniform_float uRadius {
+    default = 0.5;
+    min = 0.0;
+    max = 1.0;
+    step = 0.01;
+    display_name = "Blur Radius";
+	header = "Blur";
+}
+
+uniform_bool uEnableDirtMask {
+	default = true;
+	display_name = "Enable Dirt Mask";
+	header = "Dirt Mask";
+}
+
+uniform_float uDirtMaskContrast {
+	default = 0.5;
+	min = 0.0;
+	max = 1.0;
+	step = 0.01;
+	display_name = "Dirt Mask Contrast";
+}
+
+uniform_float uDirtMaskBrightness {
+	default = 0.0;
+	min = -0.5;
+	max = 2.0;
+	step = 0.01;
+	display_name = "Dirt Mask Brightness";
+}
+
+uniform_bool uDebug {
+	default = false;
+	display_name = "Show Flare Mask";
+	description = "Show only the flare effect without blending";
+	header = "Debug";
+}
+
+uniform_bool uToggle {
+	default = true;
+	display_name = "Toggle Flare";
+	description = "Toggle the entire effect for easy comparison";
+}
+
+sampler_1d uLensColor {
+	source = "textures/lensflare1d.png";
+}
+
+sampler_2d uDirtMask {
+	source = "textures/DirtMask.png";
+}
+
+sampler_2d uStarBurst {
+	source = "textures/StarBurst.png";
+}
+
+render_target RT_Threshold {
+    width_ratio = 0.5;
+    height_ratio = 0.5;
+    internal_format = rgb;
+    source_type = float;
+	mipmaps = false;
+	wrap_s = repeat;
+	wrap_t = repeat;
+}
+
+render_target RT_Flare {
+    width_ratio = 0.5;
+    height_ratio = 0.5;
+    internal_format = rgb;
+    source_type = float;
+	mipmaps = false;
+	wrap_s = repeat;
+	wrap_t = repeat;
+}
+
+render_target RT_Horizontal {
+    width_ratio = 0.5;
+    height_ratio = 0.5;
+    internal_format = rgb16f;
+    source_type = float;
+    source_format = rgb;
+    mipmaps = false;
+    min_filter = nearest;
+    mag_filter = nearest;
+}
+
+render_target RT_Vertical {
+    width_ratio = 0.5;
+    height_ratio = 0.5;
+    internal_format = rgb16f;
+    source_type = float;
+    source_format = rgb;
+    mipmaps = false;
+    min_filter = linear;
+    mag_filter = linear;
+}
+
+shared {
+	vec4 textureDistorted(sampler2D tex, vec2 texcoord, vec2 direction, vec3 distortion) 
+	{
+		return vec4(
+			omw_Texture2D(tex, texcoord + direction * distortion.r).r,
+			omw_Texture2D(tex, texcoord + direction * distortion.g).g,
+			omw_Texture2D(tex, texcoord + direction * distortion.b).b,
+			1.0
+		);
+	}
+	
+	float gauss(float x)
+    {
+        return exp(-x*x);
+    }
+	
+    float calculate_radius(vec2 texcoord)
+    {
+        float radius = uRadius * 0.2;
+        radius *= omw.resolution.y;
+        radius = max(radius, 0.1);
+        // hack: make the radius wider on the screen edges
+        // (makes things in the corner of the screen look less "wrong" with not-extremely-low FOVs)
+        radius *= pow(texcoord.x*2.0-1.0, 2)+1.0;
+        radius *= pow(texcoord.y*2.0-1.0, 2)+1.0;
+        return radius;
+    }
+	
+}
+
+fragment threshold(target=RT_Threshold) {
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+		vec3 threshold = max(vec3(0.0), scene + uBias) * uBrightness;
+		
+		omw_FragColor = vec4(threshold, 1.0);
+	}
+} 
+
+fragment flare(target=RT_Flare, rt1=RT_Threshold) {
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec2 uv = omw_TexCoord;
+		
+		if (uFlipUV) {
+			uv = -omw_TexCoord + vec2(1.0);
+		}
+		
+		vec2 texelSize = 1.0 / omw.resolution;
+		vec3 distortion = vec3(-texelSize.x * uDistortion, 0.0, texelSize.x * uDistortion);
+		
+		vec2 ghostVec = (vec2(0.5) - uv) * uGhostDispersal;
+		
+		vec2 direction = normalize(ghostVec);
+		
+		//sample flare
+		vec4 result = vec4(0.0);
+		
+		if (uEnableFlare) {
+			for (int i = 0; i < uGhosts; ++i) {
+				vec2 offset = fract(uv + ghostVec * float(i));
+				
+				float weight = length(vec2(0.5) - offset) / length(vec2(0.5));
+				weight = pow(1.0 - weight, 10.0);
+				
+				if (uEnableDistortion) {
+					result += textureDistorted(RT_Threshold, offset, direction, distortion) * weight;
+				} else {
+					result += omw_Texture2D(RT_Threshold, offset) * weight;
+				}
+			}
+			
+			if (uTintLens) {
+				result *= omw_Texture1D(uLensColor, length(vec2(0.5) - uv) / length(vec2(0.5)));
+			}
+		}
+		
+		// sample halo
+		if (uEnableHalo) {
+			vec2 haloVec = normalize(ghostVec) * uHaloWidth;
+			float weight = length(vec2(0.5) - fract(uv + haloVec)) / length(vec2(0.5));
+			weight = pow(1.0 - weight, 5.0);
+			result += omw_Texture2D(RT_Threshold, uv + haloVec) * weight;
+			
+			if (uEnableDistortion) {
+				result += textureDistorted(RT_Threshold, uv + haloVec, direction, distortion) * weight;
+			} else {
+				result += omw_Texture2D(RT_Threshold, uv + haloVec) * weight;
+			}
+		}
+		
+		omw_FragColor = result;
+	}
+}
+
+fragment horizontal(target=RT_Horizontal, rt1=RT_Flare) {
+    omw_In vec2 omw_TexCoord;
+
+    void main()
+    {
+        // gaussian blur, horizontal step
+        float radius = calculate_radius(omw_TexCoord);
+        int radius_i = int(ceil(radius));
+        vec3 sum = vec3(0.0);
+        float normalize = 0.0;
+        for(int x = -radius_i; x <= radius_i; x += 1)
+        {
+            float strength = gauss(float(x)/radius*2.0);
+            normalize += strength;
+            vec2 coord = omw_TexCoord + vec2(float(x), 0.0) / omw.resolution.xy;
+            vec3 sample = omw_Texture2D(RT_Flare, coord).rgb;
+            sum += strength * sample;
+        }
+        sum /= normalize;
+
+        omw_FragColor = vec4(sum, 1.0);
+    }
+}
+
+fragment vertical(target=RT_Vertical, rt1=RT_Horizontal) {
+    omw_In vec2 omw_TexCoord;
+
+    void main()
+    {
+        // gaussian blur, vertical step
+        float radius = calculate_radius(omw_TexCoord);
+        int radius_i = int(ceil(radius));
+        vec3 sum = vec3(0.0);
+        float normalize = 0.0;
+        for(int y = -radius_i; y <= radius_i; y += 1)
+        {
+            float strength = gauss(float(y)/radius*2.0);
+            normalize += strength;
+            vec2 coord = omw_TexCoord + vec2(0.0, float(y)) / omw.resolution.xy;
+            vec3 sample = omw_Texture2D(RT_Horizontal, coord).rgb;
+            sum += strength * sample;
+        }
+        sum /= normalize;
+        
+        omw_FragColor = vec4(sum, 1.0);
+    }
+}
+
+fragment main(rt1=RT_Vertical) {
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+		vec3 flare = omw_Texture2D(RT_Vertical, omw_TexCoord).rgb;
+		
+		//Dirt Mask
+		vec3 lensMod = omw_Texture2D(uDirtMask, omw_TexCoord).rgb;
+		lensMod = ((lensMod - 0.5f) * max(uDirtMaskContrast, 0)) + 0.5f;
+		lensMod += uDirtMaskBrightness;
+		
+		if (uEnableDirtMask) {
+			flare *= lensMod;
+		}
+		
+		//Debug
+		if (uDebug) {
+			scene = flare.rgb;
+		} else {
+			scene = flare.rgb + scene;
+		}
+		
+		if (!uToggle) {
+			scene = omw_GetLastShader(omw_TexCoord).rgb;
+		}
+		
+		omw_FragColor = vec4(scene.rgb, 1);
+	}
+}
+
+technique {
+    description = "Post Process Lens flare, 
+	ported from: https://john-chapman-graphics.blogspot.com/2013/02/pseudo-lens-flare.html";
+    passes = threshold, flare, horizontal, vertical, main;
+    version = "1.0";
+    author = "John Chapman, Ported by Epoch";
+}
