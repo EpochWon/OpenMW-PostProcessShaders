@@ -28,7 +28,7 @@ uniform_int uGhosts {
 }
 
 uniform_float uGhostDispersal {
-	default = 0.7;
+	default = 1.0;
 	min = 0.0;
 	max = 10.0;
 	step = 0.1;
@@ -41,7 +41,7 @@ uniform_bool uFlipUV {
 }
 
 uniform_bool uTintLens {
-	default = true;
+	default = false;
 	display_name = "Tint Lens Ghosts";
 	description = "Tint lens flare using lensflare1d texture";
 }
@@ -67,14 +67,14 @@ uniform_bool uEnableDistortion {
 }
 
 uniform_float uDistortion {
-	default = 2.0;
+	default = 0.5;
 	min = 0.0;
 	step = 0.1;
 	display_name = "RGB Split Amount";
 }
 
 uniform_float uRadius {
-    default = 0.2;
+    default = 0.5;
     min = 0.0;
     max = 1.0;
     step = 0.01;
@@ -104,6 +104,26 @@ uniform_float uDirtMaskBrightness {
 	display_name = "Dirt Mask Brightness";
 }
 
+uniform_bool uEnableStarBurst {
+	default = true;
+	display_name = "Enable Star Burst";
+	header = "Star Burst";
+}
+
+uniform_float uStarBurstContrast {
+	default = 0.5;
+	min = 0.0;
+	max = 1.0;
+	step = 0.01;
+}
+
+uniform_float uStarBurstBrightness {
+	default = 0.0;
+	min = -0.5;
+	max = 2.0;
+	step = 0.01;
+}
+
 uniform_bool uDebug {
 	default = false;
 	display_name = "Show Flare Mask";
@@ -127,6 +147,8 @@ sampler_2d uDirtMask {
 
 sampler_2d uStarBurst {
 	source = "textures/StarBurst.png";
+	wrap_s = clamp_to_edge;
+	wrap_t = clamp_to_edge;
 }
 
 render_target RT_Threshold {
@@ -198,6 +220,17 @@ shared {
         radius *= pow(texcoord.y*2.0-1.0, 2)+1.0;
         return radius;
     }
+	
+	vec2 rotateUV(vec2 uv, vec2 pivot, float rotation) {
+		mat2 rotation_matrix=mat2(  
+			vec2(sin(rotation),-cos(rotation)),
+            vec2(cos(rotation),sin(rotation))
+        );
+		uv -= pivot;
+		uv= uv*rotation_matrix;
+		uv += pivot;
+		return uv;
+}
 	
 }
 
@@ -324,37 +357,51 @@ fragment main(rt1=RT_Vertical) {
 	
 	void main()
 	{
-		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
-		vec3 flare = omw_Texture2D(RT_Vertical, omw_TexCoord).rgb;
+		vec4 scene = omw_GetLastShader(omw_TexCoord);
+		vec4 flare = omw_Texture2D(RT_Vertical, omw_TexCoord);
 		
 		//Dirt Mask
-		vec3 lensMod = omw_Texture2D(uDirtMask, omw_TexCoord).rgb;
-		lensMod = ((lensMod - 0.5f) * max(uDirtMaskContrast, 0)) + 0.5f;
-		lensMod += uDirtMaskBrightness;
+		vec4 lensMod = vec4(1.0);
 		
 		if (uEnableDirtMask) {
-			flare *= lensMod;
+			lensMod = omw_Texture2D(uDirtMask, omw_TexCoord);
+			lensMod = ((lensMod - 0.5f) * max(uDirtMaskContrast, 0)) + 0.5f;
+			lensMod += uDirtMaskBrightness;
+		}
+		
+		
+		//Star Burst
+		vec3 camx = omw.viewMatrix[0].rgb; // camera x (left) vector
+		vec3 camz = omw.viewMatrix[1].rgb; // camera z (forward) vector
+		float camrot = dot(camx, vec3(0,0,1)) + dot(camz, vec3(0,1,0));
+		
+		vec4 lensStar = omw_Texture2D(uStarBurst, rotateUV(omw_TexCoord, vec2(0.5), camrot));
+		
+		lensStar = ((lensStar - 0.5f) * max(uStarBurstContrast, 0)) + 0.5f;
+		lensStar += uStarBurstBrightness;
+		
+		if (uEnableStarBurst) {
+			lensMod *= lensStar;
 		}
 		
 		//Debug
 		if (uDebug) {
-			scene = flare.rgb;
+			scene = lensMod * lensStar;
 		} else {
-			scene = flare.rgb + scene;
+			scene = flare * lensMod + scene;
 		}
 		
 		if (!uToggle) {
-			scene = omw_GetLastShader(omw_TexCoord).rgb;
+			scene = omw_GetLastShader(omw_TexCoord);
 		}
 		
-		omw_FragColor = vec4(scene.rgb, 1);
+		omw_FragColor = scene;
 	}
 }
 
 technique {
     description = "Post Process Lens flare, 
-	ported from: https://john-chapman-graphics.blogspot.com/2013/02/pseudo-lens-flare.html
-	Gaussian Blur from built in bloomlinear.omwfx";
+	ported from: https://john-chapman-graphics.blogspot.com/2013/02/pseudo-lens-flare.html";
     passes = threshold, flare, horizontal, vertical, main;
     version = "1.0";
     author = "John Chapman, Ported by Epoch";
