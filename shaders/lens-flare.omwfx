@@ -167,8 +167,8 @@ render_target RT_Flare {
     internal_format = rgb;
     source_type = float;
 	mipmaps = false;
-	wrap_s = repeat;
-	wrap_t = repeat;
+	wrap_s = clamp_to_edge;
+	wrap_t = clamp_to_edge;
 }
 
 render_target RT_Horizontal {
@@ -386,7 +386,7 @@ fragment main(rt1=RT_Vertical) {
 		
 		//Debug
 		if (uDebug) {
-			scene = lensMod * lensStar;
+			scene = flare;
 		} else {
 			scene = flare * lensMod + scene;
 		}
