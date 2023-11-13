@@ -158,8 +158,8 @@ sampler_2d uStarBurst {
 }
 
 render_target RT_Threshold {
-    width_ratio = 0.5;
-    height_ratio = 0.5;
+    width_ratio = 0.25;
+    height_ratio = 0.25;
     internal_format = rgb;
     source_type = float;
 	mipmaps = false;
@@ -168,8 +168,8 @@ render_target RT_Threshold {
 }
 
 render_target RT_Flare {
-    width_ratio = 0.5;
-    height_ratio = 0.5;
+    width_ratio = 0.25;
+    height_ratio = 0.25;
     internal_format = rgb;
     source_type = float;
 	mipmaps = false;
@@ -178,8 +178,8 @@ render_target RT_Flare {
 }
 
 render_target RT_Horizontal {
-    width_ratio = 0.5;
-    height_ratio = 0.5;
+    width_ratio = 0.25;
+    height_ratio = 0.25;
     internal_format = rgb16f;
     source_type = float;
     source_format = rgb;
@@ -189,8 +189,8 @@ render_target RT_Horizontal {
 }
 
 render_target RT_Vertical {
-    width_ratio = 0.5;
-    height_ratio = 0.5;
+    width_ratio = 0.25;
+    height_ratio = 0.25;
     internal_format = rgb16f;
     source_type = float;
     source_format = rgb;
