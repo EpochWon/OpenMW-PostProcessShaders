@@ -386,7 +386,7 @@ fragment main(rt1=RT_Vertical) {
 		
 		//Debug
 		if (uDebug) {
-			scene = flare;
+			scene = flare * lensMod;
 		} else {
 			scene = flare * lensMod + scene;
 		}
