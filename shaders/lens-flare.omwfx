@@ -15,6 +15,12 @@ uniform_float uBrightness {
 	display_name = "Flare Brightness";
 }
 
+uniform_bool uDisableSky {
+	default = true;
+	display_name = "Disable Sky";
+	description = "Disable the sky from contributing to the threshold texture";
+}
+
 uniform_bool uEnableFlare {
 	default = true;
 	display_name = "Enable Flare";
@@ -242,6 +248,12 @@ fragment threshold(target=RT_Threshold) {
 		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
 		vec3 threshold = max(vec3(0.0), scene + uBias) * uBrightness;
 		
+		bool is_sky = (omw_GetLinearDepth(omw_TexCoord) > omw.far*0.999);
+		float factor = is_sky ? 0.0 : 1.0;
+		if (uDisableSky) {
+			threshold *= factor;
+		}
+		
 		omw_FragColor = vec4(threshold, 1.0);
 	}
 } 
@@ -386,7 +398,7 @@ fragment main(rt1=RT_Vertical) {
 		
 		//Debug
 		if (uDebug) {
-			scene = flare * lensMod;
+			scene = flare;
 		} else {
 			scene = flare * lensMod + scene;
 		}
