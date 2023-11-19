@@ -76,6 +76,14 @@ uniform_bool uEnableHalo {
 	header = "Halo";
 }
 
+uniform_float uAspectRatio {
+	default = 0.7;
+	min = 0.01;
+	max = 1.0;
+	step = 0.01;
+	display_name = "Aspect Ratio";
+}
+
 uniform_float uHaloWidth {
 	default = 0.5;
 	min = 0.0;
@@ -171,8 +179,7 @@ sampler_2d uDirtMask {
 
 sampler_2d uStarBurst {
 	source = "textures/StarBurst.png";
-	wrap_s = clamp_to_edge;
-	wrap_t = clamp_to_edge;
+	wrap_s = repeat;
 }
 
 render_target RT_Threshold {
@@ -244,17 +251,6 @@ shared {
         radius *= pow(texcoord.y*2.0-1.0, 2)+1.0;
         return radius;
     }
-	
-	vec2 rotateUV(vec2 uv, vec2 pivot, float rotation) {
-		mat2 rotation_matrix=mat2(  
-			vec2(sin(rotation),-cos(rotation)),
-            vec2(cos(rotation),sin(rotation))
-        );
-		uv -= pivot;
-		uv= uv*rotation_matrix;
-		uv += pivot;
-		return uv;
-	}
 	
 	// from Zesterer's cloud shader
 	vec3 wpos_at(vec2 uv) {
@@ -363,7 +359,13 @@ fragment flare(target=RT_Flare, rt1=RT_Threshold) {
 		
 		// sample halo
 		if (uEnableHalo) {
-			vec2 haloVec = normalize(ghostVec) * uHaloWidth;
+			vec2 haloVec = vec2(0.5) - uv;
+			haloVec.x /= uAspectRatio;
+			haloVec = normalize(haloVec) * uHaloWidth;
+			haloVec.x *= uAspectRatio;
+			
+			vec2 wuv = (uv - vec2(0.5, 0.0)) / vec2(uAspectRatio, 1.0) + vec2(0.5, 0.0);
+			float d = distance(wuv, vec2(0.5));
 			float weight = length(vec2(0.5) - fract(uv + haloVec)) / length(vec2(0.5));
 			weight = pow(1.0 - weight, 5.0);
 			result += omw_Texture2D(RT_Threshold, uv + haloVec) * weight;
@@ -469,13 +471,17 @@ fragment main(rt1=RT_Vertical, rt2=RT_Threshold) {
 		vec3 camz = omw.viewMatrix[1].rgb; // camera z (forward) vector
 		float camrot = dot(camx, vec3(0,0,1)) + dot(camz, vec3(0,1,0));
 		
-		vec4 lensStar = omw_Texture2D(uStarBurst, rotateUV(omw_TexCoord, vec2(0.5), camrot));
+		vec2 centerVec = omw_TexCoord - vec2(0.5);
+		float d = length(centerVec);
+		float radial = acos(centerVec.x / d);
+		float mask = omw_Texture2D(uStarBurst, vec2(radial + camrot * 1.0, 0.0)).r * omw_Texture2D(uStarBurst, vec2(radial - camrot * 0.5, 0.0)).r;
+		mask = mask + (1.0 - smoothstep(0.0, 0.3, d));
 		
-		lensStar = ((lensStar - 0.5f) * max(uStarBurstContrast, 0)) + 0.5f;
-		lensStar += uStarBurstBrightness;
+		mask = ((mask - 0.5f) * max(uStarBurstContrast, 0)) + 0.5f;
+		mask += uStarBurstBrightness;
 		
 		if (uEnableStarBurst) {
-			lensMod *= lensStar;
+			lensMod *= mask;
 		}
 		
 		//Debug
