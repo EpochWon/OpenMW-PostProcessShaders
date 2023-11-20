@@ -391,7 +391,7 @@ fragment main(rt1=RT_Vertical) {
 		vec2 centerVec = omw_TexCoord - vec2(0.5);
 		float d = length(centerVec);
 		float radial = acos(centerVec.x / d);
-		float mask = omw_Texture2D(uStarBurst, vec2(radial + camrot * 1.0, 0.0)).r * omw_Texture2D(uStarBurst, vec2(radial - camrot * 0.5, 0.0)).r;
+		float mask = omw_Texture1D(uStarBurst, vec2(radial + camrot * 1.0, 0.0)).r * omw_Texture1D(uStarBurst, vec2(radial - camrot * 0.5, 0.0)).r;
 		mask = mask + (1.0 - smoothstep(0.0, 0.3, d));
 		
 		mask = ((mask - 0.5f) * max(uStarBurstContrast, 0)) + 0.5f;
