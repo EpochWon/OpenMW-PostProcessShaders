@@ -25,6 +25,21 @@ uniform_float uSunBrightness {
 	display_name = "Sun Brightness";
 }
 
+uniform_bool uAutoBrightness {
+	default = true;
+	display_name = "Automatic Brightness";
+	description = "Automatically boost flare brightness at sunrise/sunset";
+}
+
+uniform_float uAutoBrightnessOffset {
+	default = 1.0;
+	min = 0.0;
+	max = 10.0;
+	step = 0.1;
+	display_name = "Automatic Brightness Offset";
+	description = "Automatic brightness boost strength";
+}
+
 uniform_float uBrightness {
 	default = 1.0;
 	min = 0.0;
@@ -377,7 +392,14 @@ fragment flare(target=RT_Flare, rt1=RT_Threshold) {
 			}
 		}
 		
-		result *= uBrightness;
+		if (uAutoBrightness) {
+			float morning_brightness = max(uAutoBrightnessOffset-abs(omw.gameHour-clamp(omw.gameHour, 5 , 8)), 0.0);
+			float evening_brightness = max(uAutoBrightnessOffset-abs(omw.gameHour-clamp(omw.gameHour, 18 , 20)), 0.0);
+			float brightness = uBrightness;
+			brightness += morning_brightness;
+			brightness += evening_brightness;
+			result *= brightness;
+		}
 		
 		omw_FragColor = result;
 	}
