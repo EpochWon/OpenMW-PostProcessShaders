@@ -11,7 +11,7 @@ RT resolution is set to 1/8th res to match the PS2, but this causes heavy shimme
 Modified version of BloomPS2 which uses a Kawase blur instead, also added more customization settings and dither debanding. 
 
 **Lens-Flare**:
-Port of https://john-chapman-graphics.blogspot.com/2013/02/pseudo-lens-flare.html without the star burst handling because I couldn't get it to work. Kind of sucks during the day because of the lack of true HDR rendering, but looks decent at night or inside. Also has a 'Disable Sky' variable that allows you to use it in conjunction with Sun-Flare as the sun instead of trying to wrangle image brightness.
+Port of https://john-chapman-graphics.blogspot.com/2013/02/pseudo-lens-flare.html, Kind of sucks during the day because of the lack of true HDR rendering, but looks decent at night or inside. Also has a 'Disable Sky' variable that allows you to use it in conjunction with Sun-Flare as the sun instead of trying to wrangle image brightness.
 
 **Sun-Flare**:
 Modified version of Lens-Flare that only applies to the sun. Use in combination with Lens-Flare's 'Disable Sky' variable to get a sun flare while keeping interior flares or separate flare settings
