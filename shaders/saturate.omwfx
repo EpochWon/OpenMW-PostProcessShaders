@@ -3,7 +3,7 @@ uniform_float uFactor {
     min = -1.0;
     max = 5.0;
     step = 0.01;
-	description = "Positive boosts saturation, negative desaturates"
+	description = "Positive boosts saturation, negative desaturates";
 }
 
 fragment main {
