@@ -1,0 +1,30 @@
+uniform_float uFactor {
+    default = 0.0;
+    min = 0.0;
+    max = 5.0;
+    step = 0.01;
+}
+
+fragment main {
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+		// desaturate RGB component
+        vec3 luminance = vec3(0.299, 0.587, 0.144);
+        vec3 sat = vec3(dot(scene, luminance));
+		
+		vec3 col = mix(scene, sat, -uFactor);
+
+        omw_FragColor = vec4(col, 1.0);	
+	}
+}
+
+
+technique {
+    description = "Saturate Colours";
+    passes = main;
+    version = "1.0";
+    author = "Epoch";
+}
