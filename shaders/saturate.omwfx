@@ -1,8 +1,9 @@
 uniform_float uFactor {
     default = 0.0;
-    min = 0.0;
+    min = -5.0;
     max = 5.0;
     step = 0.01;
+	description = "Positive boosts saturation, negative desaturates"
 }
 
 fragment main {
@@ -23,7 +24,7 @@ fragment main {
 
 
 technique {
-    description = "Saturate Colours";
+    description = "Saturate Colours, just the sample shader modified to invert desaturation";
     passes = main;
     version = "1.0";
     author = "Epoch";
