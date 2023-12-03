@@ -1,0 +1,34 @@
+render_target RT_pixel {
+	width_ratio = 0.25;
+    height_ratio = 0.25;
+	source_type = float;
+	internal_format = rgba;
+	mipmaps = false;
+	min_filter = nearest;
+	mag_filter = nearest;
+}
+
+fragment downsample(target=RT_pixel) {
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		omw_FragColor = omw_GetLastShader(omw_TexCoord);
+	}
+}
+
+fragment main(rt1=RT_pixel) {
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		omw_FragColor = omw_Texture2D(RT_pixel, omw_TexCoord);
+	}
+}
+
+technique {
+    description = "Pixelate the viewport";
+    passes = downsample, main;
+    version = "1.0";
+    author = "Epoch";
+}
