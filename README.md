@@ -28,3 +28,6 @@ Underwater screen distortion similar to Quake's software renderer. Default setti
 
 **ValveDither**: 
 Valve's screen space dithering, should theoretically improve colour banding but I could never get it to really work. Has ClampColours built in so you can limit colour depth and have it reconstructed with dither, better results than Dither4x4/8x8, but still just a novelty.
+
+**Saturate**: 
+Modified the sample shader to just invert the desaturation value, so it saturates colour instead.
