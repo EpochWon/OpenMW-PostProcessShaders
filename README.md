@@ -1,5 +1,6 @@
 # OpenMW-PostProcessShaders
 Some post process shaders for OpenMW 0.48+
+https://www.nexusmods.com/morrowind/mods/53747
 
 # Shaders
 **BloomPS2**: 
