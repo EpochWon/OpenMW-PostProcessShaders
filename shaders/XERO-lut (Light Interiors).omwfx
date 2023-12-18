@@ -63,5 +63,5 @@ technique {
     description = "XERO-LUT ported from MGEXE";
     passes = main;
     version = "1.0";
-    author = "Epoch";
+    author = "xerofoxx, ported by Epoch";
 }
