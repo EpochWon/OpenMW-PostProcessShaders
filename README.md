@@ -40,3 +40,6 @@ SMAA Anti Aliasing, port was NOT done by me, it was done by someone else who del
 
 **XERO-LUT**:
 A basic LUT shader, ported from MGEXE. Uses the LUT texture 'XERO-lut.tga', so if you want to use your own LUT replace this texture. The default LUT is in the DirectX UV format, but OpenMW is OpenGL, so the Y axis is flipped automatically by the shader for using DirectX format textures. I added a uniform to toggle this flipping, so if your LUT looks like a clown vomitted, try switching the flip.
+
+**Gaussian/KawaseBlur**:
+Standalone Gaussian/Kawase blurs. Can set the strength to negative to get a sharpen filter. Gaussian is much more expensive than Kawase but produces a nicer looking blur.
