@@ -1,0 +1,136 @@
+uniform_float uRadius {
+    default = 0.5;
+    min = 0.0;
+    max = 1.0;
+    step = 0.01;
+}
+
+uniform_float uStrength {
+    default = 0.5;
+    min = -1.0;
+    max = 1.0;
+    step = 0.01;
+	description = "Blur strength, negative values sharpen the image";
+}
+
+
+uniform_bool uEnabled {
+	default = true;
+}
+
+render_target RT_Horizontal {
+    width_ratio = 0.25;
+    height_ratio = 0.25;
+    internal_format = rgb16f;
+    source_type = float;
+    source_format = rgb;
+    mipmaps = false;
+    min_filter = nearest;
+    mag_filter = nearest;
+}
+
+render_target RT_Vertical {
+    width_ratio = 0.25;
+    height_ratio = 0.25;
+    internal_format = rgb16f;
+    source_type = float;
+    source_format = rgb;
+    mipmaps = false;
+    min_filter = linear;
+    mag_filter = linear;
+}
+
+shared {
+
+	float gauss(float x)
+    {
+        return exp(-x*x);
+    }
+	
+    float calculate_radius(vec2 texcoord)
+    {
+        float radius = uRadius * 0.2;
+        radius *= omw.resolution.y;
+        radius = max(radius, 0.1);
+        // hack: make the radius wider on the screen edges
+        // (makes things in the corner of the screen look less "wrong" with not-extremely-low FOVs)
+        radius *= pow(texcoord.x*2.0-1.0, 2)+1.0;
+        radius *= pow(texcoord.y*2.0-1.0, 2)+1.0;
+        return radius;
+    }
+}
+
+fragment horizontal(target=RT_Horizontal) {
+    omw_In vec2 omw_TexCoord;
+
+    void main()
+    {
+        // gaussian blur, horizontal step
+        float radius = calculate_radius(omw_TexCoord);
+        int radius_i = int(ceil(radius));
+        vec3 sum = vec3(0.0);
+        float normalize = 0.0;
+        for(int x = -radius_i; x <= radius_i; x += 1)
+        {
+            float strength = gauss(float(x)/radius*2.0);
+            normalize += strength;
+            vec2 coord = omw_TexCoord + vec2(float(x), 0.0) / omw.resolution.xy;
+            vec3 sample = omw_GetLastShader(coord).rgb;
+            sum += strength * sample;
+        }
+        sum /= normalize;
+
+        omw_FragColor = vec4(sum, 1.0);
+    }
+}
+
+fragment vertical(target=RT_Vertical, rt1=RT_Horizontal) {
+    omw_In vec2 omw_TexCoord;
+
+    void main()
+    {
+        // gaussian blur, vertical step
+        float radius = calculate_radius(omw_TexCoord);
+        int radius_i = int(ceil(radius));
+        vec3 sum = vec3(0.0);
+        float normalize = 0.0;
+        for(int y = -radius_i; y <= radius_i; y += 1)
+        {
+            float strength = gauss(float(y)/radius*2.0);
+            normalize += strength;
+            vec2 coord = omw_TexCoord + vec2(0.0, float(y)) / omw.resolution.xy;
+            vec3 sample = omw_Texture2D(RT_Horizontal, coord).rgb;
+            sum += strength * sample;
+        }
+        sum /= normalize;
+        
+        omw_FragColor = vec4(sum, 1.0);
+    }
+}
+
+fragment main(rt1=RT_Vertical) {
+	omw_In vec2 omw_TexCoord;
+	
+
+	void main()
+	{
+		
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+		vec3 blur = omw_Texture2D(RT_Vertical, omw_TexCoord).rgb;
+		
+		if (uEnabled) {
+			vec4 col = vec4(mix(scene, blur, uStrength), 1.0);
+			omw_FragColor = col;
+		} 
+		else {
+			omw_FragColor = vec4(scene, 1.0);
+		}
+	}
+}
+
+technique {
+    description = "Gaussian blur";
+    passes = horizontal, vertical, main;
+    version = "1.0";
+    author = "Epoch";
+}

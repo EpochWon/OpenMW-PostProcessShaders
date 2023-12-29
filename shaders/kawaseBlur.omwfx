@@ -1,0 +1,132 @@
+uniform_float uStrength {
+    default = 0.5;
+    min = -1.0;
+    max = 1.0;
+    step = 0.01;
+	description = "Blur strength, negative values sharpen the image";
+}
+
+uniform_float uScale {
+    default = 1.0;
+    min = 0.0;
+    max = 10.0;
+    step = 0.01;
+	display_name = "Blur Scale";
+}
+
+uniform_bool uEnabled {
+	default = true;
+}
+
+shared {
+	
+}
+
+fragment downsample1(){
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec2 uv = omw_TexCoord.xy * 2;
+		vec2 halfpixel = 0.5 / (omw.resolution.xy / 2.0);
+
+		vec4 sum = omw_GetLastPass(uv) * 4.0;
+		sum += omw_GetLastPass(uv - halfpixel.xy * uScale);
+		sum += omw_GetLastPass(uv + halfpixel.xy * uScale);
+		sum += omw_GetLastPass(uv + vec2(halfpixel.x, -halfpixel.y) * uScale);
+		sum += omw_GetLastPass(uv - vec2(halfpixel.x, -halfpixel.y) * uScale);
+
+		omw_FragColor = sum / 8.0;
+	}
+}
+
+fragment downsample2(){
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec2 uv = omw_TexCoord.xy * 2;
+		vec2 halfpixel = 0.5 / (omw.resolution.xy / 2.0);
+
+		vec4 sum = omw_GetLastPass(uv) * 4.0;
+		sum += omw_GetLastPass(uv - halfpixel.xy * uScale);
+		sum += omw_GetLastPass(uv + halfpixel.xy * uScale);
+		sum += omw_GetLastPass(uv + vec2(halfpixel.x, -halfpixel.y) * uScale);
+		sum += omw_GetLastPass(uv - vec2(halfpixel.x, -halfpixel.y) * uScale);
+
+		omw_FragColor = sum / 8.0;
+	}
+}
+
+fragment upsample1(){
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec2 uv = omw_TexCoord.xy / 2;
+		vec2 halfpixel = 0.5 / (omw.resolution.xy * 2.0);
+
+		vec4 sum = omw_GetLastPass(uv + vec2(-halfpixel.x * 2.0, 0.0) * uScale);
+    
+		sum +=omw_GetLastPass(uv + vec2(-halfpixel.x, halfpixel.y) * uScale) * 2.0;
+		sum +=omw_GetLastPass(uv + vec2(0.0, halfpixel.y * 2.0) * uScale);
+		sum +=omw_GetLastPass(uv + vec2(halfpixel.x, halfpixel.y) * uScale) * 2.0;
+		sum +=omw_GetLastPass(uv + vec2(halfpixel.x * 2.0, 0.0) * uScale);
+		sum +=omw_GetLastPass(uv + vec2(halfpixel.x, -halfpixel.y) * uScale) * 2.0;
+		sum +=omw_GetLastPass(uv + vec2(0.0, -halfpixel.y * 2.0) * uScale);
+		sum +=omw_GetLastPass(uv + vec2(-halfpixel.x, -halfpixel.y) * uScale) * 2.0;
+
+		omw_FragColor = sum / 12.0;
+	}
+}
+
+fragment upsample2(){
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec2 uv = omw_TexCoord.xy / 2;
+		vec2 halfpixel = 0.5 / (omw.resolution.xy * 2.0);
+		
+		vec2 ditherCoord = omw_TexCoord.xy * omw.resolution;
+
+		vec4 sum = omw_GetLastPass(uv + vec2(-halfpixel.x * 2.0, 0.0) * uScale);
+    
+		sum += omw_GetLastPass(uv + vec2(-halfpixel.x, halfpixel.y) * uScale) * 2.0;
+		sum += omw_GetLastPass(uv + vec2(0.0, halfpixel.y * 2.0) * uScale);
+		sum += omw_GetLastPass(uv + vec2(halfpixel.x, halfpixel.y) * uScale) * 2.0;
+		sum += omw_GetLastPass(uv + vec2(halfpixel.x * 2.0, 0.0) * uScale);
+		sum += omw_GetLastPass(uv + vec2(halfpixel.x, -halfpixel.y) * uScale) * 2.0;
+		sum += omw_GetLastPass(uv + vec2(0.0, -halfpixel.y * 2.0) * uScale);
+		sum += omw_GetLastPass(uv + vec2(-halfpixel.x, -halfpixel.y) * uScale) * 2.0;
+
+		omw_FragColor = sum / 12.0;
+	}
+}
+
+fragment main {
+	omw_In vec2 omw_TexCoord;
+	
+
+	void main()
+	{
+		
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+		vec3 blur = omw_GetLastPass(omw_TexCoord).rgb;
+		
+		if (uEnabled) {
+			vec4 col = vec4(mix(scene, blur, uStrength), 1.0);
+			omw_FragColor = col;
+		} 
+		else {
+			omw_FragColor = vec4(scene, 1.0);
+		}
+	}
+}
+
+technique {
+    description = "Kawase Blur";
+    passes = downsample1, downsample2, upsample1, upsample2, main;
+    version = "1.0";
+    author = "Epoch";
+}
