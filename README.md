@@ -43,3 +43,7 @@ A basic LUT shader, ported from MGEXE. Uses the LUT texture 'XERO-lut.tga', so i
 
 **Gaussian/KawaseBlur**:
 Standalone Gaussian/Kawase blurs. Can set the strength to negative to get a sharpen filter. Gaussian is much more expensive than Kawase but produces a nicer looking blur.
+
+**WaterFog**:
+Volumetric underwater fog. Based on this paper: https://www.terathon.com/lengyel/Lengyel-UnifiedFog.pdf
+Currently only applied to exteriors until Lua gets an update and I can write a script to allow interiors.
