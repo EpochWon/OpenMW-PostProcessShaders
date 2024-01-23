@@ -1,0 +1,133 @@
+uniform_vec3 uFogColourDay {
+	default = vec3(0.090195, 0.115685, 0.12745);
+	min = vec3(0.0, 0.0, 0.0);
+	max = vec3(1.0, 1.0, 1.0);
+	step = 0.01;
+	display_name = "Fog Colour";
+	description = "Colour of the underwater fog. By default set to the water colour";
+	header = "Fog";
+}
+
+uniform_float uFogHeight {
+	default = 0.0;
+	step = 1.0;
+	display_name = "Fog Start Height";
+	description = "Height that the fog starts from";
+}
+
+uniform_float uFogDensity {
+	default = 0.003;
+	min = 0.0;
+	max = 1.0;
+	step = 0.001;
+	display_name = "Fog Density";
+	description = "Density of the fog, affects falloff";
+}
+
+uniform_bool uDithering {
+	default = true;
+	display_name = "Dithering";
+	description = "Apply dithering to the fog to remove banding";
+	header = "Dithering";
+}
+
+uniform_float uDitherStrength {
+    default = 128;
+    min = 1.0;
+    max = 255.0;
+    step = 1.0;
+	display_name = "Dither intensity";
+	description = "Lower value decreases more banding but makes the dithering more visible.";
+}
+
+uniform_bool uTemporalDither {
+	default = false;
+	display_name = "Temporal Dithering";
+	description = "Change the dither pattern temporally, may result in less banding but more visible dithering.";
+}
+
+uniform_bool uEnabled {
+	default = true;
+	header = "Debug";
+}
+
+shared {	
+	vec3 screen_space_dither(vec2 frag_coord) {
+	
+		// Iestyn's RGB dither (7 asm instructions) from Portal 2 X360, slightly modified for VR.
+		vec3 dither = vec3(dot(vec2(171.0, 231.0), frag_coord));
+		dither.rgb = fract(dither.rgb / vec3(103.0, 71.0, 97.0));
+
+		// Subtract 0.5 to avoid slightly brightening the whole viewport.
+		return (dither.rgb - 0.5) / uDitherStrength;
+	}
+}
+
+fragment main {
+	omw_In vec2 omw_TexCoord;
+	
+
+	void main()
+	{
+		
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+		
+		vec3 F = vec3(0.0, 0.0, 1.0); // fog normal, using z axis only so hard code
+		vec3 fogPos = vec3(0.0, 0.0, uFogHeight); // fog position, only using z axis
+		// fog height currently driven by uniform,
+		// when Lua cell water height gets merged
+		// use a script to set height and use the uniform as an offset
+		// interiors disabled until then
+		
+		vec3 worldPos = omw_GetWorldPosFromUV(omw_TexCoord) - fogPos;
+		vec3 viewPos = omw.eyePos.xyz - fogPos;
+		
+		float FogBrightness = clamp(omw.sunPos.z / 32.0, 1.1, 2.0);
+		
+		// calculate fog
+		float a = uFogDensity / 10000.0;
+		vec3 V = viewPos - worldPos;
+		float F_dot_P = dot(F, worldPos);
+		float F_dot_C = dot(F, viewPos);
+		float k = clamp(-sign(F_dot_C), 0.0, 1.0);
+		
+		vec3 aV = (a / 2.0) * V;
+		float c1 = k * (F_dot_P + F_dot_C);
+		float c2 = (1.0 - 2.0 * k) * F_dot_P;
+		float F_dot_V = dot(F, V);
+		
+		float g = min(c2, 0.0);
+		g = -length(aV) * (c1 - g * g / abs(F_dot_V));
+		
+		float fogFactor = 1.0 - clamp(exp2(-g), 0.0, 1.0);
+		
+		
+		vec2 ditherCoord = omw_TexCoord.xy * omw.resolution;
+		if (uTemporalDither) {
+			ditherCoord += omw.simulationTime;
+		}
+		
+		vec3 fogColAdjusted = (uFogColourDay * FogBrightness);
+		vec3 fogScene = mix(scene, fogColAdjusted, fogFactor);
+		
+		if (uDithering) {
+			fogScene += screen_space_dither(ditherCoord);
+		}
+		
+		if (uEnabled) {
+			vec4 col = vec4(fogScene, 1.0);
+			omw_FragColor = col;
+		} 
+		else {
+			omw_FragColor = vec4(scene, 1.0);
+		}
+	}
+}
+
+technique {
+    description = "Volumetric underwater fog. Only applied to exteriors until Lua update";
+    passes = main;
+    version = "1.0";
+    author = "Epoch";
+	flags = disable_abovewater, disable_interiors;
+}
