@@ -1,0 +1,25 @@
+sampler_2d caiusFace {
+	source = "textures/caius.png";
+}
+
+fragment main {
+	omw_In vec2 omw_TexCoord;
+	
+	void main()
+	{
+		vec4 scene = omw_GetLastShader(omw_TexCoord);
+        vec4 caius = omw_Texture2D(caiusFace, omw_TexCoord);
+		
+		vec4 col = mix(scene, caius, caius.a);
+
+        omw_FragColor = col;	
+	}
+}
+
+
+technique {
+    description = "Adds a live Caius reaction to your screen";
+    passes = main;
+    version = "1.0";
+    author = "Epoch";
+}
