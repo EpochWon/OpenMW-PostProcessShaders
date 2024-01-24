@@ -46,3 +46,6 @@ Standalone Gaussian/Kawase blurs. Can set the strength to negative to get a shar
 
 **WaterFog**:
 Volumetric underwater fog. Based on this paper: https://www.terathon.com/lengyel/Lengyel-UnifiedFog.pdf
+
+**Caius**:
+Live Caius Cosades reaction.
