@@ -69,6 +69,18 @@ uniform_bool uEnabled {
 	header = "Debug";
 }
 
+uniform_int uDebug {
+	default = 0;
+	min = 0;
+	max = 2;
+	display_name = "Debug Mode";
+	description = "Show fog factor only for debug
+0: Disabled
+1: Fog Term
+2: Fog only";
+}
+
+
 shared {	
 	vec3 screen_space_dither(vec2 frag_coord) {
 	
@@ -124,10 +136,18 @@ fragment main {
 		vec3 fogColAdjusted = ((omw.isInterior ? uFogColourInterior : uFogColour) * FogBrightness);
 		vec3 fogScene = mix(scene, fogColAdjusted, fogFactor);
 		
+		if (uDebug == 1) {
+			fogScene = vec3(fogFactor);
+		}
+		
+		if (uDebug == 2) {
+			fogScene = mix(vec3(0.0), fogColAdjusted, fogFactor);
+		}
 		
 		if (uDithering) {
 			fogScene += screen_space_dither(ditherCoord);
 		}
+		
 		
 		if (uEnabled) {
 			vec4 col = vec4(fogScene, 1.0);
