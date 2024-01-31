@@ -1,0 +1,205 @@
+uniform_float uTexScale {
+	default = 512.0;
+	min = 1.0;
+	step = 1.0;
+	header = "Caustics";
+	display_name = "Caustics Tiling";
+}
+
+uniform_float uMinBrightness {
+	default = 0.5;
+	step = 0.01;
+	max = 1.0;
+	display_name = "Min Brightness";
+	description = "Background colour that the underwater gets tinted to where there are caustics";
+}
+
+uniform_float uCausticBrightness {
+	default = 1.0;
+	step = 0.01;
+	display_name = "Caustics Brightness";
+	description = "Brightness of the caustics";
+}
+
+uniform_float uPanningSpeed {
+	default = 1.0;
+	step = 0.01;
+	display_name = "Panning Speed";
+}
+
+uniform_float uFadeLength {
+	default = 256.0;
+	min = 1.0;
+	step = 1.0;
+	display_name = "Caustics Fade-In Length";
+	description = "Distance for caustics to fade in from the water surface";
+}
+
+uniform_int uChromaticAbberation {
+	default = 2;
+	min = 0;
+	max = 2;
+	header = "Chromatic Abberation";
+	display_name = "Chromatic Abberation";
+	description = "0 - Disabled
+1 - Static split value
+2 - Sine animated split";
+}
+
+uniform_float uChromaticSpread {
+	default = 0.5;
+	step = 0.01;
+	display_name = "Spread";
+	description = "Only for when Chromatic Abberation is 1";
+}
+
+uniform_float uChromaticSpeed {
+	default = 0.25;
+	step = 0.01;
+	display_name = "Sine Split Speed";
+	description = "Speed at which the chromatic abberation splits. Only for when Chromatic Abberation is 2";
+}
+
+uniform_float uChromaticSpreadSine {
+	default = 1.0;
+	step = 0.01;
+	display_name = "Sine Spread";
+	description = "Only for when Chromatic Abberation is 2";
+}
+
+uniform_bool uFollowSun {
+	default = true;
+	header = "Sun Projection";
+	display_name = "Follow Sun";
+	description = "Project caustics along the sun direction";
+}
+
+uniform_float uDistortStrength {
+	default = 1.0;
+	min = 0.0;
+	step = 0.01;
+	display_name = "Distortion Strength";
+	description = "Strength of sunlight projection";
+}
+
+uniform_float uHeightOffset {
+	default = 0.0;
+	step = 10.0;
+	display_name = "Height Offset";
+	description = "Offset of the water surface for sunlight projection, this value is the height in which zero distortion will occur";
+}
+
+uniform_bool uCausticsMask {
+	default = false;
+	header = "Debug";
+	display_name = "Show Caustics Term";
+}
+
+uniform_bool uEnabled {
+	default = true;
+	display_name = "Enable Shader";
+}
+
+sampler_2d causticsTex {
+	source = "textures/caustics.png";
+	wrap_s = repeat;
+	wrap_t = repeat;
+}
+
+
+shared {
+	vec3 saturate(vec3 value) {
+		return clamp(value, 0.0, 1.0);
+	}
+	
+	vec2 panner(vec2 uv, float speed, float tiling, vec2 direction) {
+		vec2 panner = (direction * omw.simulationTime * (speed * uPanningSpeed)) + (uv * tiling);
+		return panner;
+	}
+
+	vec3 causticSampler(sampler2D causticsSampler, vec2 uv, float split) {
+		vec2 uv1 = uv + vec2(split, split);
+		vec2 uv2 = uv + vec2(split, -split);
+		vec2 uv3 = uv + vec2(-split, -split);
+		
+		float r = omw_Texture2D(causticsSampler, uv1).r;
+		float g = omw_Texture2D(causticsSampler, uv2).r;
+		float b = omw_Texture2D(causticsSampler, uv3).r;
+		
+		return vec3(r, g, b);
+	}
+
+	vec3 caustics(vec2 pos) {
+		float split = 0.0;
+		if (uChromaticAbberation == 1) {
+			split = uChromaticSpread / 100.0;
+		} else if (uChromaticAbberation == 2) {
+			split = sin(omw.simulationTime * uChromaticSpeed) * ((1.0 / uTexScale) * uChromaticSpreadSine);
+		}
+		
+		vec2 uv1 = panner(pos, 0.1, 1.0 / uTexScale, vec2(1, 1)) + vec2(0.4181, 0.3548);
+		vec2 uv2 = panner(pos, 0.1, 1.0 / uTexScale, vec2(-1, -1)) + vec2(0.864861, 0.148384);
+		vec2 uv3 = panner(pos, 0.1, 1.0 / uTexScale, vec2(-1, 1))+ vec2(0.65134, 0.751638);
+		vec2 uv4 = panner(pos, 0.1, 1.0 / uTexScale, vec2(1, -1));
+		
+		vec3 caustics1 = causticSampler(causticsTex, uv1, split).rgb;
+		vec3 caustics2 = causticSampler(causticsTex, uv2, split).rgb;
+		vec3 caustics3 = causticSampler(causticsTex, uv3, split).rgb;
+		vec3 caustics4 = causticSampler(causticsTex, uv4, split).rgb;
+	
+		vec3 result = min(min(caustics1, caustics2)* 1.5, min(caustics3, caustics4)* 1.5) * 1.5;
+		return result;
+	}
+}
+
+fragment main {
+	omw_In vec2 omw_TexCoord;
+	
+
+	void main()
+	{
+		float waterH = omw.waterHeight;
+		bool waterEnabled = omw.isWaterEnabled;
+		
+		vec3 wpos =  omw_GetWorldPosFromUV(omw_TexCoord);
+		vec3 sunDir = -normalize(omw.sunPos.xyz);
+		vec3 adjustedPos = sunDir * ((wpos.z + omw.waterHeight + uHeightOffset) * uDistortStrength);
+		adjustedPos += vec3(wpos.xy, 0.0);
+		
+		vec2 wposUV = adjustedPos.xy;
+		
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+		vec3 worldPos = omw_GetWorldPosFromUV(omw_TexCoord); 
+		
+		vec3 causticsTerm = vec3(1.0);
+		if (waterEnabled) {
+			causticsTerm = saturate(
+				mix(
+					vec3(1.0),
+					vec3(uMinBrightness) + caustics(uFollowSun ? wposUV : worldPos.xy) * uCausticBrightness,
+					clamp((waterH - worldPos.z) * 1.0 / uFadeLength, 0.0, 1.0)
+					)
+				);
+		}
+		
+		vec3 col = scene * causticsTerm;
+		
+		if (uCausticsMask) {
+			col = causticsTerm;
+		}
+		
+		if (uEnabled) {
+			omw_FragColor = vec4(col, 1.0);
+		} 
+		else {
+			omw_FragColor = vec4(scene, 1.0);
+		}
+	}
+}
+
+technique {
+    description = "Hacky underwater caustics. Will not appear above water if 'Refraction' is enabled in the water settings. With refraction off it can look buggy at a distance.";
+    passes = main;
+    version = "1.0";
+    author = "Epoch";
+}
