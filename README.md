@@ -49,3 +49,6 @@ Volumetric underwater fog. Based on this paper: https://www.terathon.com/lengyel
 
 **Caius**:
 Live Caius Cosades reaction.
+
+**Caustics**:
+Sort of hacky underwater caustics. They will only appear above water if you have 'Refraction' disabled in the water settings, but they still blend incorrectly and look bad at a distance.
