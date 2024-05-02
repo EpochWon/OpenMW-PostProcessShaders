@@ -173,13 +173,12 @@ fragment main {
 		
 		vec3 causticsTerm = vec3(1.0);
 		if (waterEnabled) {
-			causticsTerm = saturate(
+			causticsTerm = 
 				mix(
 					vec3(1.0),
 					vec3(uMinBrightness) + caustics(uFollowSun ? wposUV : worldPos.xy) * uCausticBrightness,
 					clamp((waterH - worldPos.z) * 1.0 / uFadeLength, 0.0, 1.0)
-					)
-				);
+					);
 		}
 		
 		vec3 col = scene * causticsTerm;
