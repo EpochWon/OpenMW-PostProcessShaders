@@ -1,0 +1,39 @@
+uniform_bool uEnabled {
+	default = true;
+	display_name = "Enable Shader";
+}
+
+shared {
+	vec3 saturate(vec3 value) {
+		return clamp(value, 0.0, 1.0);
+	}
+}
+
+fragment main {
+	omw_In vec2 omw_TexCoord;
+
+
+	void main()
+	{
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+
+        vec3 norm = omw_GetNormalsWorldSpace(omw_TexCoord);
+
+        vec3 col = abs(dFdx(norm)) + abs(dFdy(norm));
+
+		if (uEnabled) {
+			omw_FragColor = vec4(mix(scene * 2.0, col, 0.5), 1.0);
+		}
+		else {
+			omw_FragColor = vec4(scene, 1.0);
+		}
+	}
+}
+
+technique {
+    description = "Cyberpunk 3E 427";
+    passes = main;
+    version = "1.0";
+    author = "Epoch";
+    pass_normals = true;
+}
