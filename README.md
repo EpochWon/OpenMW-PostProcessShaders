@@ -55,3 +55,6 @@ Sort of hacky underwater caustics. They will only appear above water if you have
 
 **ColorMood**:
 Ported from MGEXE, basic colour adjustment.
+
+**Neon**:
+Just a fun little thing, adds rainbow neon outlines around everything using the scene normal derivatives, because of that its a bit crusty looking. Pairs well with the Neon Vivec mod and some cranked up bloom.
