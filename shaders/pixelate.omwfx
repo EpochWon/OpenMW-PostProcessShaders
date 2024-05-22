@@ -1,34 +1,46 @@
-render_target RT_pixel {
-	width_ratio = 0.25;
-    height_ratio = 0.25;
-	source_type = float;
-	internal_format = rgba;
-	mipmaps = false;
-	min_filter = nearest;
-	mag_filter = nearest;
+uniform_float uPixelation {
+	default = 4.0;
+	step = 0.1;
+	min = 0.0;
+	display_name = "Pixelization Amount";
 }
 
-fragment downsample(target=RT_pixel) {
-	omw_In vec2 omw_TexCoord;
-	
-	void main()
-	{
-		omw_FragColor = omw_GetLastShader(omw_TexCoord);
-	}
+uniform_bool uEnabled {
+	default = true;
+	header = "Debug";
+	display_name = "Enable Shader";
+	description = "Toggle the entire shader";
 }
 
-fragment main(rt1=RT_pixel) {
+shared {
+	
+}
+
+fragment main {
 	omw_In vec2 omw_TexCoord;
 	
+
 	void main()
 	{
-		omw_FragColor = omw_Texture2D(RT_pixel, omw_TexCoord);
+		float dx = uPixelation / omw.resolution.x;
+		float dy = uPixelation / omw.resolution.y;
+		vec2 uv = vec2(dx * (floor(omw_TexCoord.x / dx) + 0.5), dy * (floor(omw_TexCoord.y / dy) + 0.5));
+		
+		vec3 scene = omw_GetLastShader(uv).rgb;
+		
+		if (uEnabled) {
+			vec4 col = vec4(scene, 1.0);
+			omw_FragColor = col;
+		} 
+		else {
+			omw_FragColor = vec4(scene, 1.0);
+		}
 	}
 }
 
 technique {
     description = "Pixelate the viewport";
-    passes = downsample, main;
-    version = "1.0";
+    passes = main;
+    version = "2.0";
     author = "Epoch";
 }
