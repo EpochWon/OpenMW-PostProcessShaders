@@ -33,7 +33,7 @@ Valve's screen space dithering, should theoretically improve colour banding but 
 Modified the sample shader to just invert the desaturation value, so it saturates colour instead.
 
 **Pixelate**: 
-Pixelate the screen by rendering to a lower res render target with min/mag set to nearest. Can't expose strength settings since its a render target, but you can change the RT size inside the source if you want more or less pixelation.
+Pixelate the screen.
 
 **SMAA**:
 SMAA Anti Aliasing, port was NOT done by me, it was done by someone else who deleted their shaders without warning, just re-uploading so that people can use it.
