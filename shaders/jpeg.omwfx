@@ -4,6 +4,11 @@ uniform_float uStrength {
     display_name = "Compression Strength";
 }
 
+uniform_bool uEnabled {
+	default = true;
+	display_name = "Enable Shader";
+}
+
 render_target RT_Jpeg {
     width_ratio = 1.0;
     height_ratio = 1.0;
