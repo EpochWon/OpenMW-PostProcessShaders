@@ -1,0 +1,111 @@
+uniform_float uStrength {
+    default = 0.25;
+    step = 0.001;
+    display_name = "Compression Strength";
+}
+
+render_target RT_Jpeg {
+    width_ratio = 1.0;
+    height_ratio = 1.0;
+    source_format = rgba;
+    internal_format = rgba32f;
+}
+
+
+shared {
+    #define pi 2.0*asin(1.0)
+    #define a(x) (x!=0.?1.:1./sqrt(2.))
+
+    vec3 toYCbCr(vec3 rgb) {
+        return rgb * mat3(0.299, 0.587, 0.114, -0.168736, -0.331264, 0.5, 0.5, -0.418688, -0.081312) + vec3(0.0, 0.5, 0.5);
+    }
+
+    vec3 pre(vec2 coord){
+        return floor(256.0 * (toYCbCr(omw_GetLastShader(coord / omw.resolution).xyz) - 0.5));
+    }
+
+    vec3 DCT8x8(vec2 coord, vec2 uv) {
+        vec3 res = vec3(0.0 , 0.0, 0.0);
+        for(float x = 0.0; x < 8.0; x++){
+            for(float y = 0.0; y < 8.0; y++){
+                res += pre(coord + vec2(x,y)) *
+                    cos((2.0 * x + 1.0) * uv.x * pi / 16.0) *
+                    cos((2.0 * y + 1.0) * uv.y * pi / 16.0);
+            }
+        }
+        return res * 0.25 * a(uv.x) * a(uv.y);
+    }
+
+    vec3 toRGB(vec3 ybr) {
+        return (ybr-vec3(0, 0.5, 0.5)) * mat3(1.0, 0.0, 1.402, 1.0, -0.344136, -0.714136, 1.0, 1.772, 0.0);
+    }
+
+    vec3 inp(vec2 coord, sampler2D tex){
+        return texelFetch(tex, ivec2(coord), 0).xyz;
+    }
+
+    vec3 IDCT8x8(vec2 coord, vec2 xy, sampler2D tex) {
+        vec3 res = vec3(0.0);
+        for(float u = 0.0; u < 8.0; u++){
+            for(float v = 0.0; v < 8.0; v++){
+                res += inp(coord + vec2(u,v), tex) *
+                    a(u) * a(v) *
+                    cos((2.0 * xy.x + 1.0) * u * pi / 16.0) *
+                    cos((2.0 * xy.y + 1.0) * v * pi / 16.0);
+            }
+        }
+        return res * 0.25;
+    }
+
+}
+
+fragment pass1(target=RT_Jpeg) {
+	omw_In vec2 omw_TexCoord;
+
+	void main()
+	{
+        vec2 texcoord = omw_TexCoord * omw.resolution;
+        vec2 uv = floor(texcoord - 8.0 * floor(texcoord / 8.0));
+        float q = (1.0 + uStrength * 20.0)*float(
+            int[](
+                16,  11,  10,  16,  24,  40,  51,  61,
+                12,  12,  14,  19,  26,  58,  60,  55,
+                14,  13,  16,  24,  40,  57,  69,  56,
+                14,  17,  22,  29,  51,  87,  80,  62,
+                18,  22,  37,  56,  68, 109, 103,  77,
+                24,  35,  55,  64,  81, 104, 113,  92,
+                49,  64,  78,  87, 103, 121, 120, 101,
+                72,  92,  95,  98, 112, 100, 103,  99
+            )[int(uv.x + uv.y * 8.0)]);
+        omw_FragColor.xyz = (floor(0.5 + DCT8x8(8.0 * floor(texcoord / 8.0), uv) / q)) * q;
+        omw_FragColor.a = 1.0;
+	}
+}
+
+fragment pass2(rt1=RT_Jpeg) {
+	omw_In vec2 omw_TexCoord;
+
+	void main()
+	{
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+
+        vec2 texcoord = omw_TexCoord * omw.resolution;
+        vec2 uv = floor(texcoord - 8.0 * floor(texcoord / 8.0));
+
+		if (uEnabled) {
+
+            omw_FragColor.xyz = toRGB(IDCT8x8(8.0 * floor(texcoord / 8.0), uv, RT_Jpeg) / 256.0 + 0.5);
+            omw_FragColor.a = 1.0;
+		}
+		else {
+			omw_FragColor = vec4(scene, 1.0);
+		}
+	}
+}
+
+technique {
+    description = "Only the best quality, based on https://www.shadertoy.com/view/llfyz4";
+    passes = pass1, pass2;
+    version = "1.0";
+    author = "Epoch";
+}
