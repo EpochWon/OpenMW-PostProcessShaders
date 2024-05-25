@@ -1,5 +1,6 @@
 uniform_float uStrength {
     default = 0.25;
+    min = 0.0;
     step = 0.001;
     display_name = "Compression Strength";
 }
