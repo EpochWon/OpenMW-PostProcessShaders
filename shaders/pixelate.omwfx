@@ -22,18 +22,15 @@ fragment main {
 
 	void main()
 	{
-		float dx = uPixelation / omw.resolution.x;
-		float dy = uPixelation / omw.resolution.y;
-		vec2 uv = vec2(dx * (floor(omw_TexCoord.x / dx) + 0.5), dy * (floor(omw_TexCoord.y / dy) + 0.5));
-		
-		vec3 scene = omw_GetLastShader(uv).rgb;
-		
 		if (uEnabled) {
-			vec4 col = vec4(scene, 1.0);
-			omw_FragColor = col;
+			float dx = uPixelation / omw.resolution.x;
+			float dy = uPixelation / omw.resolution.y;
+			vec2 uv = vec2(dx * (floor(omw_TexCoord.x / dx) + 0.5), dy * (floor(omw_TexCoord.y / dy) + 0.5));
+			vec4 scene = omw_GetLastShader(uv);
+			omw_FragColor = scene;
 		} 
 		else {
-			omw_FragColor = vec4(scene, 1.0);
+			omw_FragColor = omw_GetLastShader(omw_TexCoord);
 		}
 	}
 }
