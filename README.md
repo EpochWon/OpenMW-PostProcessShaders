@@ -61,3 +61,6 @@ Just a fun little thing, adds rainbow neon outlines around everything using the 
 
 **JPEG**:
 It's what it says on the tin, JPEG compression with an adjustable strength. Port of https://www.shadertoy.com/view/llfyz4 but I might improve it later.
+
+**Distortion Debug**:
+I needed something to help me while working on a mod using the 0.49 distortion feature. This shader only works in 0.49+ and uses the new choice box dropdown widget, how fancy.
