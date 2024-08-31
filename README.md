@@ -64,3 +64,6 @@ It's what it says on the tin, JPEG compression with an adjustable strength. Port
 
 **Distortion Debug**:
 I needed something to help me while working on a mod using the 0.49 distortion feature. This shader only works in 0.49+ and uses the new choice box dropdown widget, how fancy.
+
+**Underwater Tweaks**:
+A combination of KawaseBlur, Saturate, and the built in adjustments shader, set to only be enabled underwater. Place near the bottom of your shader stack, meant to pair with Caustics and WaterFog (which should both go near the very top, caustics above waterFog. Also pairs well with QuakeUnderwater with more toned down settings.
