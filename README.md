@@ -67,3 +67,6 @@ I needed something to help me while working on a mod using the 0.49 distortion f
 
 **Underwater Tweaks**:
 A combination of KawaseBlur, Saturate, and the built in adjustments shader, set to only be enabled underwater. Place near the bottom of your shader stack, meant to pair with Caustics and WaterFog (which should both go near the very top, caustics above waterFog. Also pairs well with QuakeUnderwater with more toned down settings.
+
+**Retro Dither**:
+PSX style dithering shader, ported from https://www.shadertoy.com/view/tlc3DM, which was ported from https://github.com/jmickle66666666/PSX-Dither-Shader/
