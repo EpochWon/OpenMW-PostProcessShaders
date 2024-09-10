@@ -2,10 +2,12 @@ uniform_int uEdgeMethod
 {
     header = "General";
     default = 3;
-    min = 1;
-    max = 3;
     display_name = "SMAA Edge Detection Method";
-    description = "1 is Depth, 2 is Luma, 3 is Color";
+	widget_type = choice(
+		"Depth" = 1,
+		"Luma" = 2,
+		"Color" = 3,
+	);
 }
 
 uniform_int uResolveMethod
@@ -14,7 +16,11 @@ uniform_int uResolveMethod
     min = 1;
     max = 2;
     display_name = "AA Resolve Method";
-    description = "1 is enhanced FXAA (a bit more blurry edges and may miss some things, but a bit more stable in motion), 2 is standard SMAA (recommended)";
+    description = "Enhanced FXAA is a bit more blurry edges and may miss some things, but a bit more stable in motion,  standard SMAA is recommended";
+	widget_type = choice(
+		"Enhanced FXAA" = 1,
+		"SMAA" = 2,
+	);
 }
 
 uniform_float SMAA_THRESHOLD
@@ -84,7 +90,13 @@ uniform_int uDebugMode
     min = 0;
     max = 3;
     display_name = "Debug View Mode";
-    description = "0 to view edges, 1 to view weights, 2 to view absolute difference between original and final pixels, 3 to view final result";
+	widget_type = choice(
+		"Edges" = 0,
+		"Weights" = 1,
+		"Absolute Difference" = 2,
+		"Final" = 3,
+		"Disabled" = 4
+	);
 }
 
 uniform_float uDebugDiffMultiplier
@@ -492,7 +504,7 @@ fragment edge(target=RT_2channel)
                 , omw_SamplerDepth
                 #endif
                 );
-        else
+		else
             edges = SMAALumaEdgeDetectionPS(omw_TexCoord, Offsets, omw_SamplerLastShader
                 #if SMAA_PREDICATION
                 , omw_SamplerDepth
@@ -1653,6 +1665,11 @@ fragment blend
             // Correct gamma like SMAA demo to check pixels accurately
             color.rgb = pow(color.rgb, vec3(1 / 2.2));
         }
+		
+		else if (uDebugMode == 4)
+		{
+			color.rgb = omw_GetLastShader(omw_TexCoord).rgb;
+		}
         
         omw_FragColor = color;
     }
