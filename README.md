@@ -36,7 +36,7 @@ Modified the sample shader to just invert the desaturation value, so it saturate
 Pixelate the screen.
 
 **SMAA**:
-SMAA Anti Aliasing, port was NOT done by me, it was done by someone else who deleted their shaders without warning, just re-uploading so that people can use it.
+SMAA Anti Aliasing, port was NOT done by me, it was done by someone else who deleted their shaders without warning, just re-uploading so that people can use it. Edited to use 0.49+ dropdown selections, so requires 0.49+. An alternative probably more optimized version is available from the original port author here: https://www.nexusmods.com/morrowind/mods/53667
 
 **XERO-LUT**:
 A basic LUT shader, ported from MGEXE. Uses the LUT texture 'XERO-lut.tga', so if you want to use your own LUT replace this texture. The default LUT is in the DirectX UV format, but OpenMW is OpenGL, so the Y axis is flipped automatically by the shader for using DirectX format textures. I added a uniform to toggle this flipping, so if your LUT looks like a clown vomitted, try switching the flip.
