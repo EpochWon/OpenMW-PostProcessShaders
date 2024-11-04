@@ -117,7 +117,7 @@ fragment main {
 		float g = min(c2, 0.0);
 		g = -length(aV) * (c1 - g * g / abs(F_dot_V));
 		
-		float fogFactor = (1.0 - clamp(exp2(-g), 0.0, 1.0));
+		float fogFactor = (1.0 - exp2(-g));
 		
 		
 		vec2 ditherCoord = omw_TexCoord.xy * omw.resolution;
