@@ -70,3 +70,6 @@ A combination of KawaseBlur, Saturate, and the built in adjustments shader, set 
 
 **Retro Dither**:
 PSX style dithering shader, ported from https://www.shadertoy.com/view/tlc3DM, which was ported from https://github.com/jmickle66666666/PSX-Dither-Shader/
+
+**Point Glow**:
+A standalone version of the Point Glow effect from Zesterer's Clouds shader. All credits go to Zesterer, I just ripped it out and made it standalone. https://github.com/zesterer/openmw-volumetric-clouds
