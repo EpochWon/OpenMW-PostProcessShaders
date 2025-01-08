@@ -73,3 +73,6 @@ PSX style dithering shader, ported from https://www.shadertoy.com/view/tlc3DM, w
 
 **Point Glow**:
 A standalone version of the Point Glow effect from Zesterer's Clouds shader. All credits go to Zesterer, I just ripped it out and made it standalone. https://github.com/zesterer/openmw-volumetric-clouds
+
+**Rain Drops**:
+Applies raindrops to the 'camera lens' when its raining.
