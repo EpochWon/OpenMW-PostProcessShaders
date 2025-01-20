@@ -88,4 +88,5 @@ technique {
     passes = main;
     version = "1.0";
     author = "Epoch";
+    flags = disable_interiors;
 }
