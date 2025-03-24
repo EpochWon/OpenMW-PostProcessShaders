@@ -76,3 +76,9 @@ A standalone version of the Point Glow effect from Zesterer's Clouds shader. All
 
 **Rain Drops**:
 Applies raindrops to the 'camera lens' when its raining.
+
+**Sky**:
+Hacky WIP HDRI texture for the sky, I use it for fancy screenshots. It has the typical problems with replacing the sky, and there is a seam where the texture repeats that I cant figure out how to fix.
+
+**Foggy**:
+A port of an old fog shader from the OpenMW forums that got forgotten by time. Its a direct port of the first version of the shader, there were later updates with fancier features that I will port later. Underwater looks kinda bad, there are banding issues, and the fog isn't reactive to weather or anything.
