@@ -1,0 +1,209 @@
+uniform_bool uGroundFog {
+	default = true;
+	header = "Fog Layers";
+}
+
+uniform_bool uSmog {
+	default = true;
+}
+
+uniform_bool uAtmosphereHaze {
+	default = true;
+}
+
+uniform_float uSmogVisibility {
+	default = 500.0;
+	step = 1.0;
+}
+
+uniform_bool uEnabled {
+	default = true;
+	header = "Debug";
+}
+
+shared {	
+	#define FOG_ZERO_VISIBILITY_VALUE \
+    (1.f / 256.f)
+
+	#define FOG_LAYER_DENSITY(viewingDistance) \
+		(log(FOG_ZERO_VISIBILITY_VALUE) / (log(0.5) * (viewingDistance)))
+
+	#define FOG_DENSITY_SCALE(height, falloff) \
+		pow(falloff, height)
+	#define FOG_DENSITY_SCALE_ANTIDERIVATIVE(height, falloff) \
+		(pow(falloff, height) / log(falloff))
+
+
+	#define FOG_LAYER_FALLOFF(height1) \
+		pow(0.5, 1.f / (height1))
+	#define FOG_FALLOFF_LINEAR(layerTop) \
+		(1.f / (layerTop))
+
+	vec3 intersect(vec3 lineP, vec3 lineN, vec3 planeN, float  planeD)
+	{
+		float distance = (planeD - dot(planeN, lineP)) / dot(lineN, planeN); //FIXME possible division through 0 ?
+		return lineP + lineN * distance;
+	}
+
+	float calcFogLayerValueLinear(float baseHeight, float layerTop, float falloff, float density, vec3 cameraPos, vec3 worldPos)
+	{
+		vec3 minPos = cameraPos.z < worldPos.z ? cameraPos : worldPos;
+		vec3 maxPos = cameraPos.z < worldPos.z ? worldPos : cameraPos;
+
+		// only the distance below the fog layer top is relevant
+		maxPos = maxPos.z > layerTop ?
+				intersect(minPos, maxPos - minPos, vec3(0, 0, 1), layerTop) :
+				maxPos;
+		minPos = minPos.z > layerTop ? maxPos : minPos;
+
+		minPos = minPos.z < baseHeight ?
+			intersect(minPos, maxPos - minPos, vec3(0, 0, 1), baseHeight) :
+			minPos;
+
+		maxPos = maxPos.z < baseHeight ? minPos : maxPos;
+
+
+		float minDensityScale = 1.f - (max(0, minPos.z - baseHeight) * falloff);
+		float maxDensityScale = 1.f - (max(0, maxPos.z - baseHeight) * falloff);
+		minDensityScale = max(0, minDensityScale);
+		maxDensityScale = max(0, maxDensityScale);
+
+		float avgDensityScale = (minDensityScale + maxDensityScale) / 2.f;
+
+	//     avgDensityScale = clamp(avgDensityScale, 0.0, 1.0);
+
+		return (length(maxPos - minPos) / 100.f) * avgDensityScale * density;
+	}
+
+	float calcFogLayerValue(float baseHeight, float falloff, float density, vec3 cameraPos, vec3 worldPos)
+	{
+		// FIXME: this function sometimes calculates erroneous values for avgDensityScale -
+		// (verified by setting avgDensityScale to a constant value)
+		// this manifests itself as one horizontal line of ramdomly colored pixels on screen
+		// occurs seldomly and most likely when a few meters above the water line (altitude 0)
+
+		vec3 minPos = cameraPos.z < worldPos.z ? cameraPos : worldPos;
+		vec3 maxPos = cameraPos.z < worldPos.z ? worldPos : cameraPos;
+
+		minPos = minPos.z < baseHeight ?
+			intersect(minPos, maxPos - minPos, vec3(0, 0, 1), baseHeight) :
+			minPos;
+		maxPos = maxPos.z < baseHeight ? minPos : maxPos;
+
+		baseHeight /= 10000.f;
+
+		float minHeight = minPos.z / 10000.f;
+		float maxHeight = maxPos.z / 10000.f;
+
+		float deltaHeight = maxHeight - minHeight;
+
+		float avgDensityScale = deltaHeight != 0.f ?
+			(FOG_DENSITY_SCALE_ANTIDERIVATIVE(maxHeight - baseHeight, falloff) -
+					FOG_DENSITY_SCALE_ANTIDERIVATIVE(minHeight - baseHeight, falloff))
+				/ deltaHeight :
+			FOG_DENSITY_SCALE(minHeight - baseHeight, falloff);
+
+		avgDensityScale = clamp(avgDensityScale, 0.0, 1.0);
+
+		return (length(minPos - maxPos) / 10000.f) * avgDensityScale * density;
+	}
+
+	float calcFogValue(vec3 cameraPos, vec3 worldPos)
+	{
+		// absolute density = relative density * distance
+		float absoluteDensity = 0;
+
+		// ground fog
+		if (uGroundFog) {
+			absoluteDensity += calcFogLayerValueLinear(0, 50, 0.0, FOG_LAYER_DENSITY(100.0), cameraPos, worldPos);
+
+			absoluteDensity += calcFogLayerValue(0.5 * 100.0, FOG_LAYER_FALLOFF(1.0 / 100.0), FOG_LAYER_DENSITY(100.0 / 100.0), cameraPos.xyz, worldPos.xyz);
+		}
+
+		if (uSmog) {
+			absoluteDensity += calcFogLayerValueLinear(0, 3000, 0.0, FOG_LAYER_DENSITY(uSmogVisibility), cameraPos, worldPos);
+
+			absoluteDensity += calcFogLayerValue(30 * 100.0, FOG_LAYER_FALLOFF(10 / 100.0), FOG_LAYER_DENSITY(uSmogVisibility / 100.0), cameraPos.xyz, worldPos.xyz);
+		}
+
+		if (uAtmosphereHaze) {
+			absoluteDensity += calcFogLayerValue(0.0, FOG_LAYER_FALLOFF(5000 / 100.0), FOG_LAYER_DENSITY(100700.0 / 100.0), cameraPos.xyz, worldPos.xyz);
+		}
+
+		return 1.f - pow(0.5, absoluteDensity);
+	}
+
+	vec3 applyFogUnderwater(vec3 cameraPos, vec3 worldPos, vec3 inputColour)
+	{
+		bool camUnderwater = omw.isUnderwater;
+
+		float visibility = camUnderwater ? 60 : 30;
+
+		float density = calcFogLayerValueLinear(-50 * 100, 0, 0, FOG_LAYER_DENSITY(visibility), cameraPos, worldPos);
+		float fogValue = 1.f - pow(0.5, density);
+
+		vec3 scatterColor = vec3(0.4, 0.7, 1.0) * omw.sunColor.xyz;
+		float scatterFactor = 0.35; //FIXME make depend in viewing distance
+
+		inputColour = camUnderwater ?
+			inputColour + scatterFactor * scatterColor * (vec3(1,1,1) - inputColour) :
+			inputColour;
+
+		inputColour = mix(inputColour, omw.fogColor.xyz, fogValue);
+
+		return inputColour;
+	}
+
+	vec3 applyFog(vec3 cameraPos, vec3 worldPos, vec3 inputColour)
+	{
+		inputColour = applyFogUnderwater(cameraPos, worldPos, inputColour);
+
+		float fogValue = calcFogValue(cameraPos, worldPos);
+
+		vec3 scatterColor = vec3(0.0, 0.4, 1.0) * omw.sunColor.xyz;
+
+		//FIXME discard underwater distance
+		float scatterFactorClear = (1.0 - pow(0.5, length(cameraPos - worldPos) * 0.000002)) * 0.9;
+		float scatterFactorFog = 0.5;
+		float scatterFactor = mix(scatterFactorClear, scatterFactorFog, fogValue);
+
+		inputColour += scatterFactor * scatterColor * (vec3(1,1,1) - inputColour);
+
+		inputColour = mix(inputColour, omw.fogColor.xyz, fogValue);
+
+		return inputColour;
+	}
+
+}
+
+fragment main {
+	omw_In vec2 omw_TexCoord;
+	
+
+	void main()
+	{
+		
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+
+		vec3 worldPos = omw_GetWorldPosFromUV(omw_TexCoord);
+		vec3 cameraPos = omw.eyePos.xyz;
+		
+		if (uEnabled) {
+			vec4 col = vec4(applyFog(cameraPos, worldPos, scene), 1.0);
+			omw_FragColor = col;
+		} 
+		else {
+			omw_FragColor = vec4(scene, 1.0);
+		}
+	}
+}
+
+technique {
+    description = "Revived fog shader: https://forum.openmw.org/viewtopic.php?t=2905
+
+This is V1 from 2015, might have lingering issues as this is a 1:1 port";
+    passes = main;
+    version = "1.0";
+    author = "visvaldas, Epoch";
+	flags = disable_interiors;
+}

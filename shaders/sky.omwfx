@@ -1,0 +1,61 @@
+uniform_bool uEnabled {
+	default = true;
+	display_name = "Enable Shader";
+}
+
+uniform_float uRotation {
+    default = 1.0;
+    step = 0.01;
+}
+
+sampler_2d skyTex {
+	source = "textures/farm_field_puresky_2k.png";
+}
+
+shared {
+	vec3 saturate(vec3 value) {
+		return clamp(value, 0.0, 1.0);
+	}
+
+	const float PI = 3.141592653589793;
+
+	vec2 sphericalUV(vec3 dir) {
+        float theta = atan(dir.y, dir.x);
+        float phi = acos(-dir.z);
+        float u = (theta + PI) / (2.0 * PI) + 0.0001;
+        float v = phi / PI;
+        return vec2(u, v);
+    }
+}
+
+fragment main {
+	omw_In vec2 omw_TexCoord;
+
+
+	void main()
+	{
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+
+        vec3 direction = normalize(omw_GetWorldPosFromUV(omw_TexCoord) - omw.eyePos.xyz);
+        vec2 uv = fract(sphericalUV(direction)); //+ vec2(fract(omw.simulationTime * 0.05), 0.0));
+        vec3 sky = omw_Texture2D(skyTex, vec2(uv.x, uv.y)).xyz;
+
+        bool is_sky = (omw_GetLinearDepth(omw_TexCoord) > omw.far*0.999);
+
+        sky = mix(scene, sky, is_sky);
+
+		if (uEnabled) {
+			omw_FragColor = vec4(sky, 1.0);
+		}
+		else {
+			omw_FragColor = vec4(scene, 1.0);
+		}
+	}
+}
+
+technique {
+    description = "";
+    passes = main;
+    version = "1.0";
+    author = "Epoch";
+}
