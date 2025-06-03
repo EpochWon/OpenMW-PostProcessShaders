@@ -45,7 +45,7 @@ fragment main {
 		if (i == 7) return 0.0;  //Blight
 		if (i == 8) return 0.0;  //Snow
 		return 0.0;   //Blizzard
-	};
+	}
 
 
 	void main()
