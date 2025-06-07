@@ -17,8 +17,22 @@ uniform_float uMinBrightness {
 uniform_float uCausticBrightness {
 	default = 1.0;
 	step = 0.01;
-	display_name = "Caustics Brightness";
-	description = "Brightness of the caustics";
+	display_name = "Global Caustics Brightness";
+	description = "Global Brightness of the caustics";
+}
+
+uniform_float uDayBrightness {
+	default = 1.0;
+	step = 0.01;
+	display_name = "Day Brightness";
+	description = "Brightness of the caustics during the day";
+}
+
+uniform_float uNightBrightness {
+	default = 0.3;
+	step = 0.01;
+	display_name = "Night Brightness";
+	description = "Brightness of the caustics at night";
 }
 
 uniform_float uPanningSpeed {
@@ -33,6 +47,25 @@ uniform_float uFadeLength {
 	step = 1.0;
 	display_name = "Caustics Fade-In Length";
 	description = "Distance for caustics to fade in from the water surface";
+}
+
+uniform_bool uSunTint {
+	default = true;
+	description = "Tint the caustics to the colour of the sun/moon";
+	display_name = "Sun Tint";
+}
+
+uniform_bool uSunMask {
+	default = true;
+	description = "Fade out casutics that are facing away from up, meaning caustics wont appear on the underside of surfaces";
+	display_name = "Direction Masking";
+}
+
+uniform_bool uFog {
+	default = true;
+	description = "Re-apply fog after caustics, since caustics overwrite the built in fog. This will potentially cause outline artifacts if MSAA is enabled.
+You might want this off if you are using another shader that applies underwater fog, such as waterFog";
+	display_name = "Re-Apply Fog";
 }
 
 uniform_int uChromaticAbberation {
@@ -89,6 +122,28 @@ uniform_float uHeightOffset {
 	description = "Offset of the water surface for sunlight projection, this value is the height in which zero distortion will occur";
 }
 
+uniform_bool uDithering {
+	default = true;
+	header = "Dithering";
+	display_name = "Dithering";
+	description = "Applies blue noise dithering to reduce colour banding. More noticeable when Re-Apply Fog is enabled.";
+}
+
+uniform_bool uTemporalDithering {
+    default = true;
+    display_name = "Temporal Dithering";
+    description = "Whether the dithering should be animated. Animated dithering changes each frame, making the dither pattern far less visible";
+}
+
+uniform_float uDitheringStrength {
+    default = 256.0;
+    min = 1.0;
+    max = 256.0;
+    step = 1.0;
+    display_name = "Dithering Strength";
+    description = "Strength of the dithering effect, lower values make the effect stronger. Stronger dithering reduces more banding, but the dithering pattern becomes more visible.";
+}
+
 uniform_bool uCausticsMask {
 	default = false;
 	header = "Debug";
@@ -106,9 +161,20 @@ sampler_2d causticsTex {
 	wrap_t = repeat;
 }
 
+sampler_2d blueNoise {
+    source = "textures/blue-noise256.png";
+    mag_filter = nearest;
+    min_filter = nearest;
+    wrap_s = repeat;
+    wrap_t = repeat;
+}
 
 shared {
 	vec3 saturate(vec3 value) {
+		return clamp(value, 0.0, 1.0);
+	}
+
+	float saturate(float value) {
 		return clamp(value, 0.0, 1.0);
 	}
 	
@@ -129,7 +195,7 @@ shared {
 		return vec3(r, g, b);
 	}
 
-	vec3 caustics(vec2 pos) {
+	vec3 sampleCaustics(vec2 pos) {
 		float split = 0.0;
 		if (uChromaticAbberation == 1) {
 			split = uChromaticSpread / 100.0;
@@ -170,18 +236,46 @@ fragment main {
 		
 		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
 		vec3 worldPos = omw_GetWorldPosFromUV(omw_TexCoord); 
+
+		vec3 normals = omw_GetNormalsWorldSpace(omw_TexCoord);
+
+		bool daytime;
+		if (omw.sunPos.z > 0.0)
+			daytime = true;
+		else
+			daytime = false;
 		
 		vec3 causticsTerm = vec3(1.0);
 		if (waterEnabled) {
-			causticsTerm = 
-				mix(
-					vec3(1.0),
-					vec3(uMinBrightness) + caustics(uFollowSun ? wposUV : worldPos.xy) * uCausticBrightness,
-					clamp((waterH - worldPos.z) * 1.0 / uFadeLength, 0.0, 1.0)
-					);
+
+			float causticsStrength = mix(uNightBrightness, uDayBrightness, omw.sunVis) * uCausticBrightness;
+			float causticsFade = clamp((waterH - worldPos.z) * 1.0 / uFadeLength, 0.0, 1.0);
+			vec3 caustics = vec3(uMinBrightness) + sampleCaustics(uFollowSun ? wposUV : worldPos.xy) * causticsStrength * (uSunTint ? omw.sunColor.xyz : vec3(1.0));
+
+			causticsTerm = mix(vec3(1.0), caustics, causticsFade);
+
+			if(uSunMask)
+			{
+				float sunMask = saturate(dot(normals, vec3(0.0, 0.0, 1.0))); // mask z-up only for now until I figure out how to make masking based on sun direction not invert at night
+				sunMask = mix(1.0, sunMask, causticsFade);
+				causticsTerm = mix(vec3(uMinBrightness), causticsTerm, sunMask);
+			}
 		}
 		
 		vec3 col = scene * causticsTerm;
+
+		if(uFog)
+			col = mix(col, omw.fogColor.xyz, omw_EstimateFogCoverageFromUV(omw_TexCoord));
+
+		if (uDithering) {
+			vec2 ditherCoord = (omw_TexCoord.xy * omw.resolution) / 256.0; // divide by texture resolution
+			if (uTemporalDithering)
+				ditherCoord += 1337.0*fract(omw.simulationTime);
+
+			float bn = omw_Texture2D(blueNoise, ditherCoord).r * omw_EstimateFogCoverageFromUV(omw_TexCoord);
+			float dithering = bn * (1.0 / uDitheringStrength);
+			col.rgb += dithering;
+		}
 		
 		if (uCausticsMask) {
 			col = causticsTerm;
@@ -197,8 +291,10 @@ fragment main {
 }
 
 technique {
-    description = "Hacky underwater caustics. Will not appear above water if 'Refraction' is enabled in the water settings. With refraction off it can look buggy at a distance.";
+    description = "Tweakable underwater caustics.";
     passes = main;
-    version = "1.0";
+    version = "1.1";
     author = "Epoch";
+	pass_normals = true;
+	flags = disable_abovewater;
 }
