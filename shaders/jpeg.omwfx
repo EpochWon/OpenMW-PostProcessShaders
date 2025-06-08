@@ -83,8 +83,7 @@ fragment pass1(target=RT_Jpeg) {
                 49,  64,  78,  87, 103, 121, 120, 101,
                 72,  92,  95,  98, 112, 100, 103,  99
             )[int(uv.x + uv.y * 8.0)]);
-        omw_FragColor.xyz = (floor(0.5 + DCT8x8(8.0 * floor(texcoord / 8.0), uv) / q)) * q;
-        omw_FragColor.a = 1.0;
+        omw_FragColor = vec4((floor(0.5 + DCT8x8(8.0 * floor(texcoord / 8.0), uv) / q)) * q, 1.0);
 	}
 }
 
