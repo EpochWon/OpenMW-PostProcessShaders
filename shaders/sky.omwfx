@@ -42,7 +42,7 @@ fragment main {
 
         bool is_sky = (omw_GetLinearDepth(omw_TexCoord) > omw.far*0.999);
 
-        sky = mix(scene, sky, is_sky);
+        sky = mix(scene, sky, float(is_sky));
 
 		if (uEnabled) {
 			omw_FragColor = vec4(sky, 1.0);
