@@ -29,10 +29,10 @@ uniform_float uBrightness {
 	display_name = "Threshold Brightness";
 }
 
-uniform_vec2 uScale {
-    default = vec2(3,3);
-    min = vec2(0,0);
-    max = vec2(20,20);
+uniform_float uScale {
+    default = 3.0;
+    min = 0.0;
+    max = 20.0;
     step = 0.1;
 	display_name = "Blur Scale";
 }
@@ -42,6 +42,14 @@ uniform_float uAmount {
 	min = 0.0;
 	max = 10.0;
 	step = 0.1;
+	display_name = "Brightness";
+}
+
+uniform_float uOpacity {
+	default = 0.75;
+	min = 0.0;
+	max = 1.0;
+	step = 0.01;
 	display_name = "Strength";
 }
 
@@ -60,11 +68,13 @@ uniform_int uDepthMask {
     max = 3;
 	step = 1;
 	display_name = "Depth Masking";
-	description = "Use depth to mask bloom instead of threshold to mimic the bloom in Shadow of the Colossus, may result in the night sky being too bright.
-	0: No depth mask
-	1: Replace mask 
-	2: Multiply mask
-	3: Max mask";
+	description = "Use depth to mask bloom instead of threshold to mimic the bloom in Shadow of the Colossus, may result in the night sky being too bright.";
+	widget_type = choice(
+		"No depth mask" = 0,
+		"Replace mask" = 1,
+		"Multiply mask" = 2,
+		"Max mask" = 3,
+	);
 }
 
 uniform_bool uAutoSkyBrightness {
@@ -80,6 +90,18 @@ uniform_float uAutoSkyBrightnessOffset {
     step = 0.01;
 	display_name = "Auto Sky Brightness Offset";
 	description = "Offset the automatic sky brightness to reduce halos around the horizon. Don't use for just changing the sky brightness, use 'Sky Intensity' instead.";
+}
+
+uniform_int uBlendingMode {
+	default = 0;
+	min = 0;
+	max = 1;
+	display_name = "Blending Mode";
+	description = "Method for blending the bloom over the original image, classic 6th and early 7th gen bloom like in Ico or Oblivion used additive blending";
+	widget_type = choice(
+		"Additive" = 0,
+		"Screen" = 1,
+	);
 }
 
 uniform_bool uDither {
@@ -135,7 +157,7 @@ uniform_bool uToggle {
 shared {
 
 	vec3 screen_space_dither(vec2 frag_coord) {
-	
+
 		// Iestyn's RGB dither (7 asm instructions) from Portal 2 X360, slightly modified for VR.
 		vec3 dither = vec3(dot(vec2(171.0, 231.0), frag_coord));
 		dither.rgb = fract(dither.rgb / vec3(103.0, 71.0, 97.0));
@@ -143,18 +165,22 @@ shared {
 		// Subtract 0.5 to avoid slightly brightening the whole viewport.
 		return (dither.rgb - 0.5) / uDitherStrength;
 	}
+
+	vec3 blend_screen(vec3 a, vec3 b) {
+		return 1.0 - (1.0 - a) * (1.0 - b);
+	}
 }
 
 fragment threshold() {
 	omw_In vec2 omw_TexCoord;
-	
+
 	void main()
 	{
 		vec4 scene = omw_GetLastShader(omw_TexCoord);
-		
+
 		float sunHeight = (omw.isInterior || omw.isUnderwater || !uAutoSkyBrightness) ? 1.0f : omw.sunPos.z;
-		float skyFactor = (uSkyFactor * sunHeight) + uAutoSkyBrightnessOffset; 
-		
+		float skyFactor = (uSkyFactor * sunHeight) + uAutoSkyBrightnessOffset;
+
 		if (uOldThreshold) {
 			scene.r = pow(scene.r, uThreshold);
 			scene.g = pow(scene.g, uThreshold);
@@ -162,11 +188,11 @@ fragment threshold() {
 		} else {
 			scene.rgb = max(vec3(0.0), scene.rgb + uBias) * uBrightness;
 		}
-		
-		
+
+
 		bool is_sky = (omw_GetLinearDepth(omw_TexCoord) > omw.far*0.999);
 		float factor = is_sky ? skyFactor : 1.0;
-		
+
 		if (uDepthMask == 1) {
 			float factor = is_sky ? skyFactor : 0.0;
 			scene.rgb = vec3(factor);
@@ -177,21 +203,21 @@ fragment threshold() {
 			float factor = is_sky ? skyFactor : 0.0;
 			scene.rgb = max(scene.rgb, vec3(factor));
 		}
-		
+
 		if (uGrayscale) {
 			const vec3 luminance = vec3(0.299, 0.587, 0.144);
 			float gray = dot(luminance, scene.rgb);
-			
-			omw_FragColor = vec4(vec3(gray) * factor, 1);	
+
+			omw_FragColor = vec4(vec3(gray) * factor, 1);
 		} else {
-			omw_FragColor = scene * factor;	
+			omw_FragColor = scene * factor;
 		}
 	}
 }
 
 fragment downsample1(){
 	omw_In vec2 omw_TexCoord;
-	
+
 	void main()
 	{
 		vec2 uv = omw_TexCoord.xy * 2;
@@ -209,7 +235,7 @@ fragment downsample1(){
 
 fragment downsample2(){
 	omw_In vec2 omw_TexCoord;
-	
+
 	void main()
 	{
 		vec2 uv = omw_TexCoord.xy * 2;
@@ -227,14 +253,14 @@ fragment downsample2(){
 
 fragment upsample1(){
 	omw_In vec2 omw_TexCoord;
-	
+
 	void main()
 	{
 		vec2 uv = omw_TexCoord.xy / 2;
 		vec2 halfpixel = 0.5 / (omw.resolution.xy * 2.0);
 
 		vec4 sum = omw_GetLastPass(uv + vec2(-halfpixel.x * 2.0, 0.0) * uScale);
-    
+
 		sum +=omw_GetLastPass(uv + vec2(-halfpixel.x, halfpixel.y) * uScale) * 2.0;
 		sum +=omw_GetLastPass(uv + vec2(0.0, halfpixel.y * 2.0) * uScale);
 		sum +=omw_GetLastPass(uv + vec2(halfpixel.x, halfpixel.y) * uScale) * 2.0;
@@ -249,16 +275,16 @@ fragment upsample1(){
 
 fragment upsample2(){
 	omw_In vec2 omw_TexCoord;
-	
+
 	void main()
 	{
 		vec2 uv = omw_TexCoord.xy / 2;
 		vec2 halfpixel = 0.5 / (omw.resolution.xy * 2.0);
-		
+
 		vec2 ditherCoord = omw_TexCoord.xy * omw.resolution;
 
 		vec4 sum = omw_GetLastPass(uv + vec2(-halfpixel.x * 2.0, 0.0) * uScale);
-    
+
 		sum += omw_GetLastPass(uv + vec2(-halfpixel.x, halfpixel.y) * uScale) * 2.0;
 		sum += omw_GetLastPass(uv + vec2(0.0, halfpixel.y * 2.0) * uScale);
 		sum += omw_GetLastPass(uv + vec2(halfpixel.x, halfpixel.y) * uScale) * 2.0;
@@ -266,11 +292,11 @@ fragment upsample2(){
 		sum += omw_GetLastPass(uv + vec2(halfpixel.x, -halfpixel.y) * uScale) * 2.0;
 		sum += omw_GetLastPass(uv + vec2(0.0, -halfpixel.y * 2.0) * uScale);
 		sum += omw_GetLastPass(uv + vec2(-halfpixel.x, -halfpixel.y) * uScale) * 2.0;
-		
+
 		if (uTemporalDither) {
 			ditherCoord += omw.simulationTime;
 		}
-		
+
 		if (uDither) {
 			sum.rgb += screen_space_dither(ditherCoord.xy);
 		}
@@ -281,22 +307,25 @@ fragment upsample2(){
 
 fragment main() {
 	omw_In vec2 omw_TexCoord;
-	
+
 	void main()
 	{
 		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
 		vec3 blur = omw_GetLastPass(omw_TexCoord).rgb;
-		
+
 		if (uDebug) {
 			scene = blur.rgb * (uAmount * uColor);
 		} else {
-			scene = blur.rgb * (uAmount * uColor) + scene;
+			if (uBlendingMode == 0)
+				scene = mix(scene, blur.rgb * (uAmount * uColor) + scene, uOpacity);
+			else if (uBlendingMode == 1)
+				scene = mix(scene, blend_screen(blur.rgb * (uAmount * uColor), scene), uOpacity);
 		}
-		
+
 		if (!uToggle) {
 			scene = omw_GetLastShader(omw_TexCoord).rgb;
 		}
-		
+
 		omw_FragColor = vec4(scene.rgb, 1);
 	}
 }
