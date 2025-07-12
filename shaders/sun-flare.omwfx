@@ -262,9 +262,8 @@ shared {
         radius = max(radius, 0.1);
         // hack: make the radius wider on the screen edges
         // (makes things in the corner of the screen look less "wrong" with not-extremely-low FOVs)
-        texcoord = texcoord * 2.0 - vec2(1.0);
-        radius *= texcoord.x * texcoord.x + 1.0;
-	radius *= texcoord.y * texcoord.y + 1.0;
+        radius *= pow(texcoord.x*2.0-1.0, 2)+1.0;
+        radius *= pow(texcoord.y*2.0-1.0, 2)+1.0;
         return radius;
     }
 	
@@ -303,6 +302,19 @@ shared {
 		vec3 sun_glare = pow(max(dot(dir, sun_dir), 0), 10) * omw.sunColor.rgb * 0.5;
 		
 		return sun_glare;
+	}
+
+	vec3 blend_screen(vec3 a, vec3 b) {
+		return 1.0 - (1.0 - a) * (1.0 - b);
+	}
+
+	vec4 blend_screen(vec4 a, vec4 b) {
+		return 1.0 - (1.0 - a) * (1.0 - b);
+	}
+
+	vec4 saturate(vec4 a)
+	{
+		return clamp(a, 0.0, 1.0);
 	}
 	
 }
@@ -511,26 +523,28 @@ fragment main(rt1=RT_Vertical, rt2=RT_Threshold) {
 		if (uDebug) {
 			scene = flare * lensMod;
 		} else {
-			scene = flare * lensMod + scene;
+			scene = blend_screen(flare * lensMod, scene);
 		}
 		
 		if (max_dist >= HORIZON * 0.9) {
-			scene.rgb += sun.rgb;
+			scene.rgb = blend_screen(sun.rgb, scene.rgb);
 		}
 		
 		if (!uToggle) {
 			scene = omw_GetLastShader(omw_TexCoord);
 		}
 		
-		omw_FragColor = scene;
+		omw_FragColor = saturate(scene);
 	}
 }
 
 technique {
-    description = "Sun only lens flare, replaces the vanillaa sun with a shader version.
-	'Better sun' courtesy of Zesterer";
+    description = "Sun only lens flare, replaces the vanilla sun with a shader version.
+'Better sun' courtesy of Zesterer.
+
+Currently very expensive because it uses a gaussian blur pass, so maybe only use it for screenshots";
     passes = sun, flare, horizontal, vertical, main;
-    version = "1.0";
+    version = "1.1";
     author = "Epoch";
 	flags= disable_sunglare, disable_interiors, disable_underwater;
 }
