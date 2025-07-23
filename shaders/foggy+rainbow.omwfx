@@ -1,0 +1,334 @@
+uniform_bool uGroundFog {
+	default = true;
+	header = "Fog Layers";
+}
+
+uniform_bool uSmog {
+	default = true;
+}
+
+uniform_bool uAtmosphereHaze {
+	default = true;
+}
+
+uniform_float uSmogVisibility {
+	default = 500.0;
+	step = 1.0;
+}
+
+uniform_float uRainbow1Angle {
+	default = 42.0;
+	step = 0.1;
+	header = "Rainbow";
+}
+
+uniform_float uRainbow1Width {
+	default = 2.0;
+	step = 0.1;
+}
+
+uniform_bool uRainbow1Invert {
+	default = false;
+}
+
+uniform_float uRainbow2Angle {
+	default = 51.0;
+	step = 0.1;
+}
+
+uniform_float uRainbow2Width {
+	default = 3.6;
+	step = 0.1;
+}
+
+uniform_bool uRainbow2Invert {
+	default = true;
+}
+
+uniform_float uRainbowFadeStart {
+	default = 100.0;
+	step = 1.0;
+	description "In meters";
+}
+
+uniform_float uRainbowFadeEnd {
+	default = 300.0;
+	step = 1.0;
+	description "In meters";
+}
+
+uniform_bool uRainbowDebug {
+	default = false;
+	header = "Debug";
+}
+
+uniform_bool uEnabled {
+	default = true;
+}
+
+sampler_2d spectrumVisibleSampler {
+	source = "textures/spectrum_visible.png";
+	wrap_s = clamp_to_border;
+	wrap_t = clamp_to_border;
+}
+
+shared {	
+	#define FOG_ZERO_VISIBILITY_VALUE \
+    (1.f / 256.f)
+
+	#define FOG_LAYER_DENSITY(viewingDistance) \
+		(log(FOG_ZERO_VISIBILITY_VALUE) / (log(0.5) * (viewingDistance)))
+
+	#define FOG_DENSITY_SCALE(height, falloff) \
+		pow(falloff, height)
+	#define FOG_DENSITY_SCALE_ANTIDERIVATIVE(height, falloff) \
+		(pow(falloff, height) / log(falloff))
+
+
+	#define FOG_LAYER_FALLOFF(height1) \
+		pow(0.5, 1.f / (height1))
+	#define FOG_FALLOFF_LINEAR(layerTop) \
+		(1.f / (layerTop))
+
+	vec3 intersect(vec3 lineP, vec3 lineN, vec3 planeN, float  planeD)
+	{
+		float distance = (planeD - dot(planeN, lineP)) / dot(lineN, planeN); //FIXME possible division through 0 ?
+		return lineP + lineN * distance;
+	}
+
+	float calcFogLayerValueLinear(float baseHeight, float layerTop, float falloff, float density, vec3 cameraPos, vec3 worldPos)
+	{
+		vec3 minPos = cameraPos.z < worldPos.z ? cameraPos : worldPos;
+		vec3 maxPos = cameraPos.z < worldPos.z ? worldPos : cameraPos;
+
+		// only the distance below the fog layer top is relevant
+		maxPos = maxPos.z > layerTop ?
+				intersect(minPos, maxPos - minPos, vec3(0, 0, 1), layerTop) :
+				maxPos;
+		minPos = minPos.z > layerTop ? maxPos : minPos;
+
+		minPos = minPos.z < baseHeight ?
+			intersect(minPos, maxPos - minPos, vec3(0, 0, 1), baseHeight) :
+			minPos;
+
+		maxPos = maxPos.z < baseHeight ? minPos : maxPos;
+
+
+		float minDensityScale = 1.f - (max(0, minPos.z - baseHeight) * falloff);
+		float maxDensityScale = 1.f - (max(0, maxPos.z - baseHeight) * falloff);
+		minDensityScale = max(0, minDensityScale);
+		maxDensityScale = max(0, maxDensityScale);
+
+		float avgDensityScale = (minDensityScale + maxDensityScale) / 2.f;
+
+	//     avgDensityScale = clamp(avgDensityScale, 0.0, 1.0);
+
+		return (length(maxPos - minPos) / 100.f) * avgDensityScale * density;
+	}
+
+	float calcFogLayerValue(float baseHeight, float falloff, float density, vec3 cameraPos, vec3 worldPos)
+	{
+		// FIXME: this function sometimes calculates erroneous values for avgDensityScale -
+		// (verified by setting avgDensityScale to a constant value)
+		// this manifests itself as one horizontal line of ramdomly colored pixels on screen
+		// occurs seldomly and most likely when a few meters above the water line (altitude 0)
+
+		vec3 minPos = cameraPos.z < worldPos.z ? cameraPos : worldPos;
+		vec3 maxPos = cameraPos.z < worldPos.z ? worldPos : cameraPos;
+
+		minPos = minPos.z < baseHeight ?
+			intersect(minPos, maxPos - minPos, vec3(0, 0, 1), baseHeight) :
+			minPos;
+		maxPos = maxPos.z < baseHeight ? minPos : maxPos;
+
+		baseHeight /= 10000.f;
+
+		float minHeight = minPos.z / 10000.f;
+		float maxHeight = maxPos.z / 10000.f;
+
+		float deltaHeight = maxHeight - minHeight;
+
+		float avgDensityScale = deltaHeight != 0.f ?
+			(FOG_DENSITY_SCALE_ANTIDERIVATIVE(maxHeight - baseHeight, falloff) -
+					FOG_DENSITY_SCALE_ANTIDERIVATIVE(minHeight - baseHeight, falloff))
+				/ deltaHeight :
+			FOG_DENSITY_SCALE(minHeight - baseHeight, falloff);
+
+		avgDensityScale = clamp(avgDensityScale, 0.0, 1.0);
+
+		return (length(minPos - maxPos) / 10000.f) * avgDensityScale * density;
+	}
+
+	float calcFogValue(vec3 cameraPos, vec3 worldPos)
+	{
+		// absolute density = relative density * distance
+		float absoluteDensity = 0;
+
+		// ground fog
+		if (uGroundFog) {
+			absoluteDensity += calcFogLayerValueLinear(0, 50, 0.0, FOG_LAYER_DENSITY(100.0), cameraPos, worldPos);
+
+			absoluteDensity += calcFogLayerValue(0.5 * 100.0, FOG_LAYER_FALLOFF(1.0 / 100.0), FOG_LAYER_DENSITY(100.0 / 100.0), cameraPos.xyz, worldPos.xyz);
+		}
+
+		if (uSmog) {
+			absoluteDensity += calcFogLayerValueLinear(0, 3000, 0.0, FOG_LAYER_DENSITY(uSmogVisibility), cameraPos, worldPos);
+
+			absoluteDensity += calcFogLayerValue(30 * 100.0, FOG_LAYER_FALLOFF(10 / 100.0), FOG_LAYER_DENSITY(uSmogVisibility / 100.0), cameraPos.xyz, worldPos.xyz);
+		}
+
+		if (uAtmosphereHaze) {
+			absoluteDensity += calcFogLayerValue(0.0, FOG_LAYER_FALLOFF(5000 / 100.0), FOG_LAYER_DENSITY(100700.0 / 100.0), cameraPos.xyz, worldPos.xyz);
+		}
+
+		return 1.f - pow(0.5, absoluteDensity);
+	}
+
+	vec3 applyFogUnderwater(vec3 cameraPos, vec3 worldPos, vec3 inputColour)
+	{
+		bool camUnderwater = omw.isUnderwater;
+
+		float visibility = camUnderwater ? 60 : 30;
+
+		float density = calcFogLayerValueLinear(-50 * 100, 0, 0, FOG_LAYER_DENSITY(visibility), cameraPos, worldPos);
+		float fogValue = 1.f - pow(0.5, density);
+
+		vec3 scatterColor = vec3(0.4, 0.7, 1.0) * omw.sunColor.xyz;
+		float scatterFactor = 0.35; //FIXME make depend in viewing distance
+
+		inputColour = camUnderwater ?
+			inputColour + scatterFactor * scatterColor * (vec3(1,1,1) - inputColour) :
+			inputColour;
+
+		inputColour = mix(inputColour, omw.fogColor.xyz, fogValue);
+
+		return inputColour;
+	}
+
+	vec3 applyFog(vec3 cameraPos, vec3 worldPos, vec3 inputColour)
+	{
+		inputColour = applyFogUnderwater(cameraPos, worldPos, inputColour);
+
+		float fogValue = calcFogValue(cameraPos, worldPos);
+
+		vec3 scatterColor = vec3(0.0, 0.4, 1.0) * omw.sunColor.xyz;
+
+		//FIXME discard underwater distance
+		float scatterFactorClear = (1.0 - pow(0.5, length(cameraPos - worldPos) * 0.000002)) * 0.9;
+		float scatterFactorFog = 0.5;
+		float scatterFactor = mix(scatterFactorClear, scatterFactorFog, fogValue);
+
+		inputColour += scatterFactor * scatterColor * (vec3(1,1,1) - inputColour);
+
+		inputColour = mix(inputColour, omw.fogColor.xyz, fogValue);
+
+		return inputColour;
+	}
+
+	/* used texture lookup instead, leaving here for later maybe
+	// Based on GPU Gems
+	// Optimised by Alan Zucconi
+	vec3 bump3y (vec3 x, vec3 yoffset)
+	{
+		vec3 y = 1 - x * x;
+		y = clamp(y-yoffset, 0.0, 1.0);
+		return y;
+	}
+	vec3 spectral_zucconi (float w)
+	{
+		// w: [400, 700]
+		// x: [0,   1]
+		float x = clamp((w - 400.0)/ 300.0, 0.0, 1.0);
+
+		const vec3 cs = vec3(3.54541723, 2.86670055, 2.29421995);
+		const vec3 xs = vec3(0.69548916, 0.49416934, 0.28269708);
+		const vec3 ys = vec3(0.02320775, 0.15936245, 0.53520021);
+
+		return bump3y (    cs * (x - xs), ys);
+	}
+	*/
+
+	vec3 calcRainbowColour(float angle, float rainbowAngle, float rainbowWidth, bool invert) {
+		float t = (angle - (rainbowAngle - rainbowWidth)) / (2.0 * rainbowWidth);
+		t = clamp(t, 0.0, 1.0);
+		return omw_Texture2D(spectrumVisibleSampler, vec2(invert ? 1.0 - t : t, 0.5)).rgb;
+	}
+
+	vec4 calcRainbow(float rainbowAngle, float rainbowWidth, vec3 viewDir, vec3 rainbowDir, bool invert) {
+		float alignment = dot(normalize(viewDir), rainbowDir);
+		float angle = acos(alignment);
+
+		float Angle = radians(rainbowAngle);
+		float Width = radians(rainbowWidth);
+
+		float mask = smoothstep(Angle - Width, Angle, alignment) * (1.0 - smoothstep(Angle, Angle + Width, alignment));
+		// mask is completely wrong for rainbow 2 and I can't figure it out at the moment.
+
+		return vec4(calcRainbowColour(angle, Angle, Width, invert), mask);
+	}
+
+}
+
+fragment main {
+	omw_In vec2 omw_TexCoord;
+	
+
+	void main()
+	{
+		
+		vec3 scene = omw_GetLastShader(omw_TexCoord).rgb;
+
+		float linearDepth = omw_GetLinearDepth(omw_TexCoord);
+
+		vec3 worldPos = omw_GetWorldPosFromUV(omw_TexCoord);
+		vec3 cameraPos = omw.eyePos.xyz;
+		
+		if (uEnabled) {
+			//vec4 col = vec4(applyFog(cameraPos, worldPos, scene), 1.0);
+
+			vec3 rainbowDir = -omw.sunPos.xyz;
+			vec3 viewDir = worldPos - cameraPos;
+
+			vec4 rainbow1 = calcRainbow(uRainbow1Angle, uRainbow1Width, viewDir, rainbowDir, uRainbow1Invert);
+			vec4 rainbow2 = calcRainbow(uRainbow2Angle, uRainbow2Width, viewDir, rainbowDir, uRainbow2Invert);
+			vec4 rainbowCombined = clamp(rainbow1 + (rainbow2 * 0.43), 0.0, 1.0);
+
+			float rainbowFadeStart = uRainbowFadeStart * 69.99125109; // convert meters to funny todd units
+			float rainbowFadeEnd = uRainbowFadeEnd * 69.99125109;
+
+			float distance = length(worldPos - cameraPos);
+			float fade = smoothstep(rainbowFadeStart, rainbowFadeEnd, distance);
+
+			float fogValue = calcFogValue(cameraPos, worldPos);
+
+			vec3 scatterColor = vec3(0.0, 0.4, 1.0) * omw.sunColor.xyz;
+
+			//FIXME discard underwater distance
+			float scatterFactorClear = (1.0 - pow(0.5, length(cameraPos - worldPos) * 0.000002)) * 0.9;
+			float scatterFactorFog = 0.5;
+			float scatterFactor = mix(scatterFactorClear, scatterFactorFog, fogValue);
+
+			float rainbowIntensity = fade * scatterFactor * (fogValue);
+
+			scene += scatterFactor * scatterColor * (vec3(1,1,1) - scene);
+			scene += rainbowCombined.xyz * rainbowIntensity * omw.sunColor.xyz;
+			scene = mix(scene, omw.fogColor.xyz, fogValue);
+
+
+			if (uRainbowDebug)
+				scene = rainbowCombined.xyz;
+ 			omw_FragColor = vec4(scene, 1.0);
+		} 
+		else {
+			omw_FragColor = vec4(scene, 1.0);
+		}
+	}
+}
+
+technique {
+    description = "Foggy shader plus WIP rainbow approximation driven by the fog.";
+    passes = main;
+    version = "0.1";
+    author = "visvaldas, Epoch";
+	flags = disable_interiors, disable_underwater;
+}
