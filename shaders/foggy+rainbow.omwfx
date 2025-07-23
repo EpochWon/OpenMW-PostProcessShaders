@@ -48,13 +48,13 @@ uniform_bool uRainbow2Invert {
 uniform_float uRainbowFadeStart {
 	default = 100.0;
 	step = 1.0;
-	description "In meters";
+	description = "In meters";
 }
 
 uniform_float uRainbowFadeEnd {
 	default = 300.0;
 	step = 1.0;
-	description "In meters";
+	description = "In meters";
 }
 
 uniform_bool uRainbowDebug {
